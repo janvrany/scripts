@@ -1,7 +1,20 @@
 #!/usr/bin/ruby
 #
-# A simple script to biset two directories. Prints the minimal set
+# A simple script to bisect two directories. Prints the minimal set
 # of files that differ and cause check to fail. 
+#
+# Useful when you use an outdated SCM with no builtin bisect support such 
+# as CVS or when diffs between two revisions are too big. 
+#
+# Usage:  ./bisect.rb --check check.sh good_dir bad_dir work_dir
+#
+# The check script is passed a path to working directory and must
+# return exit status 0 if working copy is good of nonzero if its bad. 
+#
+# See also:
+# 
+#   git help bisect
+#   hg help bisect
 #
 
 require 'fileutils'
@@ -10,13 +23,20 @@ require 'optparse'
 
 include FileUtils
 
-def check(dir)
-    #return (system "./check.sh #{dir}")
-    return check_make(dir)
+def check(script, dir)
+    if script == 'internal:make' then
+        return check_internal_make(dir)
+    else
+    	return check_external(script, dir)
+    end
 end
 
-def check_make(dir)    
+def check_internal_make(dir)    
     return (system "make -C #{dir}")
+end
+
+def check_external(script, dir)    
+    return (system "#{script} #{dir}")
 end
 
 def copy_files(files, src_dir, dst_dir)
@@ -25,7 +45,7 @@ def copy_files(files, src_dir, dst_dir)
     end
 end
 
-def judge(suspects)
+def judge(suspects, script)
 	puts
 	puts 
 	puts "JUDGING"
@@ -33,7 +53,7 @@ def judge(suspects)
             puts " - #{each}"
 	end	
         copy_files(suspects, $DIR_BAD, $DIR_WORK)
-        if ! check($DIR_WORK) then
+        if ! check(script, $DIR_WORK) then
             puts "GUILTY"
             suspects.each do | each |
             	puts " - #{each}"
@@ -41,7 +61,7 @@ def judge(suspects)
             Kernel.exit 1
         end
         copy_files(suspects, $DIR_GOOD, $DIR_WORK)
-        if ! check($DIR_WORK) then
+        if ! check(script, $DIR_WORK) then
            puts "OOPS - working directory failed to check after reverting changes!" 
            Kernel.exit 11
         else 
@@ -57,13 +77,20 @@ end
 
 def main()	
     excludes = []
+    script = 'internal:make'
 
     optparse = OptionParser.new do | opts |
     	opts.banner = "Usage: bisect-dir.rb [options] <good> <bad> <working>"        
-    	opts.on('-X', '--exclude PATTERN', "Exclude files matching PATTERN from list of suspects") do | pattern |
+    	opts.on('-x', '--exclude PATTERN', "Exclude files matching PATTERN from list of suspects") do | pattern |
             excludes << pattern
         end    		   
+
+        opts.on('-c', "--check SCRIPT", "Path to script to check whether current working version is good or bad") do | s |
+            script = s
+        end        	
+
     end
+
     optparse.parse!
     
 
@@ -97,14 +124,14 @@ def main()
     `rsync --progress -r "#{$DIR_GOOD}/" "#{$DIR_WORK}/"`
 
     puts "Checking pristine working directory..."
-    if ! check($DIR_WORK) then
+    if ! check(script, $DIR_WORK) then
     	puts "OOPS - pristing working directory failed to check!"
         Kernel.exit 10
     end
 
     for i in 1..differences.size
         differences.combination(i).each do | combination |    
-            judge(combination)
+            judge(combination, script)
         end         
     end    
 
