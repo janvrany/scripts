@@ -1,21 +1,21 @@
 #!/usr/bin/ruby
 #
 # A simple script to bisect two directories. Prints the minimal set
-# of files that differ and cause check to fail. 
+# of files that differ and cause check to fail.
 #
-# Useful when you use an outdated SCM with no builtin bisect support such 
-# as CVS or when diffs between two revisions are too big. 
+# Useful when you use an outdated SCM with no builtin bisect support such
+# as CVS or when diffs between two revisions are too big.
 #
 # Usage:  ./bisect.rb --check check.sh good_dir bad_dir work_dir
 #
 # The check script is passed a path to working directory and must
-# return exit status 0 if working copy is good of nonzero if its bad. 
+# return exit status 0 if working copy is good of nonzero if its bad.
 #
 # See also:
-# 
+#
 #   git help bisect
 #   hg help bisect
-#
+
 
 require 'fileutils'
 require 'tmpdir'
@@ -31,11 +31,11 @@ def check(script, dir)
     end
 end
 
-def check_internal_make(dir)    
+def check_internal_make(dir)
     return (system "make -C #{dir}")
 end
 
-def check_external(script, dir)    
+def check_external(script, dir)
     return (system "#{script} #{dir}")
 end
 
@@ -47,11 +47,11 @@ end
 
 def judge(suspects, script)
 	puts
-	puts 
+	puts
 	puts "JUDGING"
 	suspects.each do | each |
             puts " - #{each}"
-	end	
+	end
         copy_files(suspects, $DIR_BAD, $DIR_WORK)
         if ! check(script, $DIR_WORK) then
             puts "GUILTY"
@@ -62,9 +62,9 @@ def judge(suspects, script)
         end
         copy_files(suspects, $DIR_GOOD, $DIR_WORK)
         if ! check(script, $DIR_WORK) then
-           puts "OOPS - working directory failed to check after reverting changes!" 
+           puts "OOPS - working directory failed to check after reverting changes!"
            Kernel.exit 11
-        else 
+        else
 	    puts "CONSIDERED INNOCENT"
 	    suspects.each do | each |
                 puts " - #{each}"
@@ -75,24 +75,29 @@ def judge(suspects, script)
 end
 
 
-def main()	
+def main()
     excludes = []
     script = 'internal:make'
 
     optparse = OptionParser.new do | opts |
-    	opts.banner = "Usage: bisect-dir.rb [options] <good> <bad> <working>"        
+    	opts.banner = "Usage: bisect-dir.rb [options] <good> <bad> <working>"
     	opts.on('-x', '--exclude PATTERN', "Exclude files matching PATTERN from list of suspects") do | pattern |
             excludes << pattern
-        end    		   
+        end
 
         opts.on('-c', "--check SCRIPT", "Path to script to check whether current working version is good or bad") do | s |
             script = s
-        end        	
+        end
+
+        opts.on(nil, '--help', "Prints this message") do
+            puts optparse.help()
+            exit 0
+      	end
 
     end
 
     optparse.parse!
-    
+
 
     $DIR_GOOD=ARGV[0]
     $DIR_BAD=ARGV[1]
@@ -113,8 +118,8 @@ def main()
     	re = Regexp.new(pattern)
     	differences = differences.reject { | f | f.match(re) }
     end
-    
-    
+
+
     puts "Files that differ: "
     differences.each do | each |
         puts " - #{each}"
@@ -130,10 +135,10 @@ def main()
     end
 
     for i in 1..differences.size
-        differences.combination(i).each do | combination |    
+        differences.combination(i).each do | combination |
             judge(combination, script)
-        end         
-    end    
+        end
+    end
 
     puts
     puts "OOPS - All prooven innocent. You've got wrong guys!"
