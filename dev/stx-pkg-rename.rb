@@ -1,5 +1,5 @@
 #!/usr/bin/ruby
-#
+
 require 'fileutils'
 require 'tmpdir'
 require 'optparse'
@@ -14,45 +14,44 @@ end
 def rename(oldPkg, newPkg, path = '.')
   puts "Renaming \#'#{oldPkg}' to \#'#{newPkg}' in #{path}'"
 
+  oldPkgXlatedUnderscores = oldPkg.tr(':/', '_');
+  newPkgXlatedUnderscores = newPkg.tr(':/', '_');
+
 
   # Pass 1 - update package pragma in all source files
   begin
     Dir.glob(File.join(path , '*.st')) do | each |
       replace(each, "'#{oldPkg}'",  "'#{newPkg}'")
     end
+
+    java_extensions = File.join(path, "java", "extensions")
+    if File.exist? java_extensions then
+      raise Exception.new("Not yet implemented")
+    end
   end
 
-  # Pass 2 - rename project definition file
+  # Pass 2 - rename project definition
   begin
-    oldPkgDefName = oldPkg.tr(':/', '_');
-    newPkgDefName = newPkg.tr(':/', '_');
-    File.rename(File.join(path, "#{oldPkgDefName}.st"), File.join(path, "#{newPkgDefName}.st"))
-
-    replace(File.join(path, "#{newPkgDefName}.st"), oldPkgDefName, newPkgDefName)
+    File.rename(File.join(path, "#{oldPkgXlatedUnderscores}.st"), File.join(path, "#{newPkgXlatedUnderscores}.st"))
+    replace(File.join(path, "#{newPkgXlatedUnderscores}.st"), oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
   end
 
   # Pass 3 - update libInit.cc
   begin
-    oldPkgXlated1 = oldPkg.tr(':/', '_');
-    newPkgXlated1 = newPkg.tr(':/', '_');
-
-    oldPkgXlated2 = oldPkgXlated1.gsub('_', '_137')
-    newPkgXlated2 = newPkgXlated1.gsub('_', '_137')
+    oldPkgXlatedEscape = oldPkgXlatedUnderscores.gsub('_', '_137')
+    newPkgXlatedEscape = newPkgXlatedUnderscores.gsub('_', '_137')
 
     libInit_dot_cc = File.join(path, 'libInit.cc')
 
     replace(libInit_dot_cc, "\"#{oldPkg}\"", "\"#{newPkg}\"")
-    replace(libInit_dot_cc, oldPkgXlated1, newPkgXlated1)
-    replace(libInit_dot_cc, oldPkgXlated2, newPkgXlated2)
+    replace(libInit_dot_cc, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
+    replace(libInit_dot_cc, oldPkgXlatedEscape, newPkgXlatedEscape)
   end
 
-  # Pass 4 - update makefiles
+  # Pass 4 - update package name in makefiles
   begin
-    oldPkgXlated = oldPkg.tr(':/', '_');
-    newPkgXlated = newPkg.tr(':/', '_');
-
     [ 'Make.proto', 'Make.spec', 'bc.mak' ].each do | each |
-      replace(File.join(path, each), oldPkgXlated, newPkgXlated)
+      replace(File.join(path, each), oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
     end
 
     oldModule, oldPackage = oldPkg.split(':')
@@ -60,6 +59,40 @@ def rename(oldPkg, newPkg, path = '.')
 
     replace(File.join(path, 'Make.spec'), "MODULE=#{oldModule}", "MODULE=#{newModule}")
     replace(File.join(path, 'Make.spec'), "MODULE_DIR=#{oldPackage}", "MODULE_DIR=#{newPackage}")
+  end
+
+  # Pass 5 - update TOP in bc.mak & Make.proto
+  begin
+    oldTOP = (oldPkgXlatedUnderscores.split('_').collect { | e | '..'}).join('/')
+    newTOP = (newPkgXlatedUnderscores.split('_').collect { | e | '..'}).join('/')
+
+    replace(File.join(path, 'Make.proto'), "TOP=#{oldTOP}/stx", "TOP=#{newTOP}/stx")
+
+    oldTOP = (oldPkgXlatedUnderscores.split('_').collect { | e | '..'}).join("\\")
+    newTOP = (newPkgXlatedUnderscores.split('_').collect { | e | '..'}).join("\\")
+
+    replace(File.join(path, 'bc.mak'), Regexp.escape("TOP=#{oldTOP}\\stx"), "TOP=#{newTOP}\\stx")
+  end
+
+  # Pass 6 - update dependencies in bc.mak & Make.proto
+  begin
+    oldDepPrefix = "$(INCLUDE_TOP)/#{oldPkg.tr(':', '/')}"
+    newDepPrefix = "$(INCLUDE_TOP)/#{newPkg.tr(':', '/')}"
+
+    replace(File.join(path, 'Make.proto'), Regexp.escape(oldDepPrefix), newDepPrefix)
+
+    oldDepPrefix = "$(INCLUDE_TOP)\\#{oldPkg.tr(':', '\\')}"
+    newDepPrefix = "$(INCLUDE_TOP)\\#{newPkg.tr(':', '\\')}"
+
+    replace(File.join(path, 'bc.mak'), Regexp.escape(oldDepPrefix), newDepPrefix)
+  end
+
+  # Pass 7 - rename project definition class in extensions.st
+  begin
+    extensions_dot_st = File.join(path, 'extensions.st')
+    if (File.exist? extensions_dot_st) then
+      replace(extensions_dot_st, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
+    end
   end
 
 end
