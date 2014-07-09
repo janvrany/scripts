@@ -1,21 +1,24 @@
 #!/usr/bin/ruby
-#
-# A simple script to bisect two directories. Prints the minimal set
-# of files that differ and cause check to fail.
-#
-# Useful when you use an outdated SCM with no builtin bisect support such
-# as CVS or when diffs between two revisions are too big.
-#
-# Usage:  ./bisect.rb --check check.sh good_dir bad_dir work_dir
-#
-# The check script is passed a path to working directory and must
-# return exit status 0 if working copy is good of nonzero if its bad.
-#
-# See also:
-#
-#   git help bisect
-#   hg help bisect
+DOCUMENTATION = <<DOCEND
+A simple script to bisect two directories. Prints the minimal set
+of files that differ and cause check to fail.
 
+Useful when you use an ancient SCM with no builtin bisect support such
+as CVS or when diffs between two revisions are too big and unrelated.
+
+The check script (if provided) is passed a path to working directory and must
+return exit status 0 if working copy is good of nonzero if its bad.
+
+There's one "built-in" check script called "internal:make" (the default, if no
+check script is used) which just runs a make. A workdir is consireder good if
+make proceeds without errors.
+
+See also:
+
+* git help bisect
+* hg help bisect
+
+DOCEND
 
 require 'fileutils'
 require 'tmpdir'
@@ -85,11 +88,12 @@ def main()
             excludes << pattern
         end
 
-        opts.on('-c', "--check SCRIPT", "Path to script to check whether current working version is good or bad") do | s |
+        opts.on('-c', "--check SCRIPT", "Path to script to check whether current working version is good or bad (default is to run make)") do | s |
             script = s
         end
 
         opts.on(nil, '--help', "Prints this message") do
+            puts DOCUMENTATION
             puts optparse.help()
             exit 0
       	end
