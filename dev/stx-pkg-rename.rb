@@ -1,4 +1,30 @@
 #!/usr/bin/ruby
+DOCUMENTATION = <<DOCEND
+Rename a Smalltalk/X package.
+
+Renaming Smalltalk/X package is sort of pain as the source code contains a lot
+of references to actual package name. WHen package is renamed (or moved to
+different subdirectory), all these references has to be updated.
+
+This script makes this task easier by automating some of these changes, namely:
+
+* renames project definition file
+* updates package pragma in all source files
+* updates package names and paths in makefiles
+* updates libInit.cc
+
+This may or may not be sufficient. After running this script, you still should
+check for some leftover references (like in readme, documentation, ...) and
+update them manually (or fix this script).
+
+Note, that this script does not recurse to nested packages.
+Note, that after renaming a package, you must manually:
+
+* update all packages depending in this one
+* update build files for all applications depending on this package, directly
+  or indirectly.
+
+DOCEND
 
 require 'fileutils'
 require 'tmpdir'
@@ -165,7 +191,7 @@ def main()
   old = new = nil
 
   optparse = OptionParser.new do | opts |
-    opts.banner = "Usage: stx-pkg-rename.rb -f|--old OLDNAME -t|--new NEWNAME"
+    opts.banner = "Usage: stx-pkg-rename.rb -f|--old OLDNAME -t|--new NEWNAME\n\n"
     opts.on('-f', '--old OLDNAME', "Old (current) package name") do | value |
       old = value
     end
@@ -175,6 +201,7 @@ def main()
     end
 
     opts.on(nil, '--help', "Prints this message") do
+      puts DOCUMENTATION
       puts optparse.help()
       exit 0
     end
