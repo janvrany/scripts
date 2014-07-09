@@ -4,7 +4,51 @@ require 'fileutils'
 require 'tmpdir'
 require 'optparse'
 
-def replace(file, pattern, replacement)
+def error(message, code=1)
+  puts "error: #{message}"
+  exit code
+end
+
+def file_move(oldFile, newFile)
+
+  if oldFile == newFile then
+    return
+  end
+
+  File.rename(oldFile, newFile)
+
+  oldDir = File.dirname(File.absolute_path(oldFile))
+  newDir = File.dirname(File.absolute_path(newFile))
+
+  # Now, if managed by Mercurial, tell it that file has been renamed
+  begin
+    # Check if one is subdir of the other
+    commonDir = nil
+    if oldDir.start_with? newDir then
+      commonDir = newDir
+    elsif newDir.start_with? oldDir then
+      commonDir = oldDir
+    end
+    if commonDir != nil then
+      # Search for .hg directory
+      d = commonDir
+      while ((d != nil) and (not File.directory? (File.join(d, '.hg')))) do
+        p = File.dirname(d)
+        if p != d then
+          d = p
+        else
+          d = nil
+        end
+      end
+      if d != nil then
+        # We have found a Mercurial repository
+        `hg rename -A #{oldFile} #{newFile}`
+      end
+    end
+  end
+end
+
+def file_edit_replace(file, pattern, replacement)
   contents = File.read(file)
   contents.gsub!(Regexp.new(pattern), replacement)
   File.open(file, "w") {|file| file.puts contents}
@@ -12,16 +56,25 @@ end
 
 
 def rename(oldPkg, newPkg, path = '.')
-  puts "Renaming \#'#{oldPkg}' to \#'#{newPkg}' in #{path}'"
+  puts "info: renaming \#'#{oldPkg}' to \#'#{newPkg}' in #{path}'"
 
   oldPkgXlatedUnderscores = oldPkg.tr(':/', '_');
   newPkgXlatedUnderscores = newPkg.tr(':/', '_');
 
 
+  # Validate
+  begin
+    File.exist?(File.join(path, "#{oldPkgXlatedUnderscores}.st")) || error("Project definition file for #{oldPkg} not found!")
+    [ 'Make.spec' , 'Make.proto', 'bc.mak', 'bmake.bat'].each do | file |
+      File.exist?(File.join(path, file)) || error("#{file} not found, perhaps #{path} does not contain a Smalltalk/X package?")
+    end
+  end
+
+
   # Pass 1 - update package pragma in all source files
   begin
     Dir.glob(File.join(path , '*.st')) do | each |
-      replace(each, "'#{oldPkg}'",  "'#{newPkg}'")
+      file_edit_replace(each, "'#{oldPkg}'",  "'#{newPkg}'")
     end
 
     java_extensions = File.join(path, "java", "extensions")
@@ -32,8 +85,8 @@ def rename(oldPkg, newPkg, path = '.')
 
   # Pass 2 - rename project definition
   begin
-    File.rename(File.join(path, "#{oldPkgXlatedUnderscores}.st"), File.join(path, "#{newPkgXlatedUnderscores}.st"))
-    replace(File.join(path, "#{newPkgXlatedUnderscores}.st"), oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
+    file_move(File.join(path, "#{oldPkgXlatedUnderscores}.st"), File.join(path, "#{newPkgXlatedUnderscores}.st"))
+    file_edit_replace(File.join(path, "#{newPkgXlatedUnderscores}.st"), oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
   end
 
   # Pass 3 - update libInit.cc
@@ -43,22 +96,22 @@ def rename(oldPkg, newPkg, path = '.')
 
     libInit_dot_cc = File.join(path, 'libInit.cc')
 
-    replace(libInit_dot_cc, "\"#{oldPkg}\"", "\"#{newPkg}\"")
-    replace(libInit_dot_cc, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
-    replace(libInit_dot_cc, oldPkgXlatedEscape, newPkgXlatedEscape)
+    file_edit_replace(libInit_dot_cc, "\"#{oldPkg}\"", "\"#{newPkg}\"")
+    file_edit_replace(libInit_dot_cc, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
+    file_edit_replace(libInit_dot_cc, oldPkgXlatedEscape, newPkgXlatedEscape)
   end
 
   # Pass 4 - update package name in makefiles
   begin
     [ 'Make.proto', 'Make.spec', 'bc.mak' ].each do | each |
-      replace(File.join(path, each), oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
+      file_edit_replace(File.join(path, each), oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
     end
 
     oldModule, oldPackage = oldPkg.split(':')
     newModule, newPackage = newPkg.split(':')
 
-    replace(File.join(path, 'Make.spec'), "MODULE=#{oldModule}", "MODULE=#{newModule}")
-    replace(File.join(path, 'Make.spec'), "MODULE_DIR=#{oldPackage}", "MODULE_DIR=#{newPackage}")
+    file_edit_replace(File.join(path, 'Make.spec'), "MODULE=#{oldModule}", "MODULE=#{newModule}")
+    file_edit_replace(File.join(path, 'Make.spec'), "MODULE_DIR=#{oldPackage}", "MODULE_DIR=#{newPackage}")
   end
 
   # Pass 5 - update TOP in bc.mak & Make.proto
@@ -66,12 +119,12 @@ def rename(oldPkg, newPkg, path = '.')
     oldTOP = (oldPkgXlatedUnderscores.split('_').collect { | e | '..'}).join('/')
     newTOP = (newPkgXlatedUnderscores.split('_').collect { | e | '..'}).join('/')
 
-    replace(File.join(path, 'Make.proto'), "TOP=#{oldTOP}/stx", "TOP=#{newTOP}/stx")
+    file_edit_replace(File.join(path, 'Make.proto'), "TOP=#{oldTOP}/stx", "TOP=#{newTOP}/stx")
 
     oldTOP = (oldPkgXlatedUnderscores.split('_').collect { | e | '..'}).join("\\")
     newTOP = (newPkgXlatedUnderscores.split('_').collect { | e | '..'}).join("\\")
 
-    replace(File.join(path, 'bc.mak'), Regexp.escape("TOP=#{oldTOP}\\stx"), "TOP=#{newTOP}\\stx")
+    file_edit_replace(File.join(path, 'bc.mak'), Regexp.escape("TOP=#{oldTOP}\\stx"), "TOP=#{newTOP}\\stx")
   end
 
   # Pass 6 - update dependencies in bc.mak & Make.proto
@@ -79,20 +132,30 @@ def rename(oldPkg, newPkg, path = '.')
     oldDepPrefix = "$(INCLUDE_TOP)/#{oldPkg.tr(':', '/')}"
     newDepPrefix = "$(INCLUDE_TOP)/#{newPkg.tr(':', '/')}"
 
-    replace(File.join(path, 'Make.proto'), Regexp.escape(oldDepPrefix), newDepPrefix)
+    file_edit_replace(File.join(path, 'Make.proto'), Regexp.escape(oldDepPrefix), newDepPrefix)
 
     oldDepPrefix = "$(INCLUDE_TOP)\\#{oldPkg.tr(':', '\\')}"
     newDepPrefix = "$(INCLUDE_TOP)\\#{newPkg.tr(':', '\\')}"
 
-    replace(File.join(path, 'bc.mak'), Regexp.escape(oldDepPrefix), newDepPrefix)
+    file_edit_replace(File.join(path, 'bc.mak'), Regexp.escape(oldDepPrefix), newDepPrefix)
   end
 
   # Pass 7 - rename project definition class in extensions.st
   begin
     extensions_dot_st = File.join(path, 'extensions.st')
     if (File.exist? extensions_dot_st) then
-      replace(extensions_dot_st, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
+      file_edit_replace(extensions_dot_st, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
     end
+  end
+
+  # Pass 8 - rename & update .rc file
+  begin
+    oldRcFile = "#{oldPkgXlatedUnderscores.split('_').last}.rc"
+    newRcFile = "#{newPkgXlatedUnderscores.split('_').last}.rc"
+
+    file_move(oldRcFile, newRcFile)
+    file_edit_replace(newRcFile, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
+    file_edit_replace(newRcFile, oldPkg, newPkg)
   end
 
 end
