@@ -12,6 +12,7 @@ This script makes this task easier by automating some of these changes, namely:
 * updates package pragma in all source files
 * updates package names and paths in makefiles
 * updates libInit.cc
+* updates abbrev.stc
 
 This may or may not be sufficient. After running this script, you still should
 check for some leftover references (like in readme, documentation, ...) and
@@ -183,6 +184,12 @@ def rename(oldPkg, newPkg, path = '.')
     file_edit_replace(newRcFile, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
     file_edit_replace(newRcFile, oldPkg, newPkg)
   end
+
+    # Pass 9 - update abbrev stc
+  begin
+    file_edit_replace(File.join(path, 'abbrev.stc'), oldPkg,  newPkg)
+  end
+
 
 end
 
