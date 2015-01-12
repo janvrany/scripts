@@ -12,6 +12,9 @@ Scripts
 
 * *[hg-archive-revisions.rb][4]*: an `hg archive` wrapper which allows to export multiple revisions at once, in the same way `hg export` can. Handy for generating complete archives for those who don't like patches :-)
 
+* *[cvs-addremove.rb][6]* a script to examine CVS working copy, `cvs add` all
+new files and `cvs remove` all missing files.
+
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
 
@@ -25,3 +28,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [2]: https://bitbucket.org/janvrany/jv-scripts/src/tip/patch-and-check.rb
 [3]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-pkg-rename.rb
 [4]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-archive-revisions.rb
+[6]: https://bitbucket.org/janvrany/jv-scripts/src/tip/cvs-addremove.rb
