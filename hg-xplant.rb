@@ -24,11 +24,12 @@ is ok, you may want to commit to non-Mercurial repository.
 NOTES:
 
 'destination revision' (--dest-rev) defaults to last revision recorded in
-destination .hgxplantmap file.
+source's `.hg/shamap`
 
 'base revision' (--base-rev) is not used to generate a diff, but it is used
 to generate a log message. All commits between base rev and goal rev are
-considered as transplanted. Base revision defaults to greates common ancestor
+considered as transplanted. Base revision defaults latest recorded revision
+in .hgxplantlog or, if that does not exist, to greates common ancestor
 of destination revision and goal revision.
 
 The check script (if provided) is passed a path to working directory and must
@@ -89,6 +90,12 @@ def patch_and_check(dst, patch, patchlevel, check_script)
     patch_cmd = "patch -N -s -f -p#{patchlevel} -i #{patch}"
     puts "Patching..."
     if not system(patch_cmd)  then
+      if File.exist?(File.join(dst, 'CVS')) then
+        puts "Patchig failed. You may revert CVS working copy by:"
+        puts ""
+        puts "    (cd #{dst} && cvs upd -C)"
+        puts ""
+      end
       error "patching failed for '#{patch}'"
     end
     puts "Checking..."
@@ -137,16 +144,23 @@ def hg_diff(repo, rev1, rev2)
   return patch
 end
 
-def hg_xplant(src, dst, rev_goal, rev_dest, rev_base, check_script)
-  puts "Transplanting commits starting at #{rev_base} to #{rev_goal}..."
+def hg_xplant(src, dst, rev_goal, rev_dest, rev_base, revmap, check_script, dry_run = false)
+  puts "Transplanting..."
+  puts "  goal rev: #{rev_goal}"
+  puts "  dest rev: #{rev_dest}"
+  puts "  base rev: #{rev_base}"
+  commits = hg_log(src, "#{rev_base}::#{rev_goal} - #{rev_base}::#{rev_dest}", "  - {node|short}: {author|person}, {date|isodate}: {firstline(desc)}\\n")
+  puts "   commits: #{commits.size}"
+
   patch = hg_diff(src, rev_dest, rev_goal)
-  #patch_and_check(dst, patch, 1, check_script)
-  commits = hg_log(src, "#{rev_base}::#{rev_goal}", "  - {node|short}: {author|person}, {date|isodate}: {firstline(desc)}\\n")
+  if not dry_run then
+    patch_and_check(dst, patch, 1, check_script)
+  end
   if commits.size == 1 then
-    commits = hg_log(src, "#{rev_base}::#{rev_goal}", "{node|short}: {author|person}, {date|isodate}\n\n{desc}\\n")
+    commits = hg_log(src, "#{rev_base}::#{rev_goal} - #{rev_base}::#{rev_dest}", "{node|short}: {author|person}, {date|isodate}\n\n{desc}\\n")
   end
 
-  # Fabricate a default commit log.
+  # Generate default commit message
   log_message_file = File.join(dst, "~log-message~")
   File.open(log_message_file, "w") do | log_message |
     log_message.write("Merged with mercurial revision #{rev_goal}")
@@ -162,36 +176,50 @@ def hg_xplant(src, dst, rev_goal, rev_dest, rev_base, check_script)
     end
   end
 
-  # Now, write .hgxplantlog
-  hgxplantlog_file = File.join(dst, ".hgxplantlog")
-  File.open(hgxplantlog_file, "a") do | hgxplantlog |
-    hgxplantlog.write("#{rev_goal}\n")
+  # Generate splicemap entry
+  splicemap_entry = nil
+  if (revmap.size > 0) then
+    rev_base_full = (hg_log(src, rev_base, "{node}\n"))[0]
+    splicemap_entry = "#{revmap.last[0].to_i + 1} #{revmap.last[0].to_i},#{rev_base_full}"
   end
 
-  puts "Commits #{rev_base} to #{rev_goal} transplanted."
-  puts "Generated commit message has been written to #{log_message_file}."
+  # Write .hgxplantlog
+  if not dry_run then
+    hgxplantlog_file = File.join(dst, ".hgxplantlog")
+    File.open(hgxplantlog_file, "a") do | hgxplantlog |
+      hgxplantlog.write("#{rev_goal}\n")
+    end
+  end
+
+
+
+  puts "Transplanted."
   puts ""
-  puts "!!! VERIFY THE RESULT !!!"
+  puts " * Generated commit message has been written to #{log_message_file} ."
   puts ""
+  if splicemap_entry != nil then
+  puts " * You may want to add following line to splicemap to record the mege:"
+  puts ""
+  puts "       #{splicemap_entry}"
+  puts ""
+  end
   if File.exist?(File.join(dst, 'CVS', 'Entries')) then
-    puts "Destination looks like a CVS working copy. You may want to"
-    puts "call cvs-addremove.rb to add/remove all adder/removed file..."
+    puts " * Call cvs-addremove.rb to add/remove file in CVS:"
     puts ""
-    puts "    cvs-addremove -C #{dst}"
+    puts "       cvs-addremove -C #{dst}"
     puts ""
-    puts "...and then commit..."
+    puts " * Commit to CVS:"
     puts ""
-    puts "    (cd #{dst} && cvs commit -F ~log-message~)"
+    puts "       (cd #{dst} && cvs commit -F ~log-message~)"
     puts ""
   end
-
-
 end
 
 
 def main()
     source = File.expand_path(".")
     destination = nil
+    dry_run = false
 
     rev_goal = nil
     rev_dest = nil
@@ -220,6 +248,10 @@ def main()
 
         opts.on('-c', "--check SCRIPT", "Path to script to check whether patched destination is good or bad (default is to run make)") do | s |
             check_script = s
+        end
+
+        opts.on("--dry-run", "Do not update any files nor patch desctination. Use for testing.") do | s |
+            dry_run = true
         end
 
         opts.on(nil, '--help', "Prints this message") do
@@ -254,19 +286,25 @@ def main()
       rev_goal = hg_symbolic_rev_2_shortrev(source, rev_goal)
     end
 
-    if rev_dest == nil then
-      hgxplantlog_file = File.join(destination, '.hgxplantlog')
-      if File.exist?(hgxplantlog_file) then
-        File.open(hgxplantlog_file, "r") do | file |
-          file.each do | rev |
-            rev_dest = rev
-          end
+    revmap_file = File.join(source, '.hg', 'shamap')
+    revmap = []
+    if File.exist?(revmap_file) then
+      File.open(revmap_file, "r") do | file |
+        file.each do | pair |
+          revmap << pair.split(" ")
         end
-        if rev_dest == nil then
-          error("dest revision not specified and destination .hgxplantlog is empty")
+      end
+    end
+
+    if rev_dest == nil then
+      if File.exist?(revmap_file) then
+        if revmap.size > 0 then
+          rev_dest = revmap.last[1]
+        else
+          error("dest revision not specified and source's revmap (.hg/shamap) is empty")
         end
       else
-        error("dest revision not specified and destination .hgxplantlog does not exist")
+        error("dest revision not specified and source's revmap (.hg/shamap) does not exist")
       end
     end
     if not hg_log_validate_rev(source, rev_dest) then
@@ -276,11 +314,21 @@ def main()
     end
 
     if rev_base == nil then
-      rev_base = hg_log(source, "ancestor(#{rev_goal}, #{rev_dest})")
-      if rev_base.size == 0 then
-        error("Cannot find base revision as 'ancestor(#{rev_goal}, #{rev_dest})'. Use --rev-base.")
-      else
-        rev_base = rev_base[0]
+      hgxplantlog_file = File.join(destination, '.hgxplantlog')
+      if File.exist?(hgxplantlog_file) then
+        File.open(hgxplantlog_file, "r") do | file |
+          file.each do | rev |
+            rev_base = rev
+          end
+        end
+      end
+      if rev_base == nil then
+        rev_base = hg_log(source, "ancestor(p1(#{rev_goal}), #{rev_dest})")
+        if rev_base.size == 0 then
+          error("Cannot find base revision as 'ancestor(p1(#{rev_goal}), #{rev_dest})'. Use --rev-base.")
+        else
+          rev_base = rev_base[0]
+        end
       end
     end
     if not hg_log_validate_rev(source, rev_base) then
@@ -289,7 +337,14 @@ def main()
       rev_base = hg_symbolic_rev_2_shortrev(source, rev_base)
     end
 
-    hg_xplant(source, destination, rev_goal, rev_dest, rev_base, check_script)
+    if rev_goal == rev_dest then
+      error("goal revision equal to destination revision")
+    end
+    if rev_goal == rev_base then
+      error("goal revision equal to base revision - commits may be already transplanted")
+    end
+
+    hg_xplant(source, destination, rev_goal, rev_dest, rev_base, revmap, check_script, dry_run)
 end
 
 
