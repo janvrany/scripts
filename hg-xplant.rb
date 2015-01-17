@@ -176,11 +176,11 @@ def hg_xplant(src, dst, rev_goal, rev_dest, rev_base, revmap, check_script, dry_
     end
   end
 
-  # Generate splicemap entry
+  # Generate splicemap entry to paste into splicemap
   splicemap_entry = nil
   if (revmap.size > 0) then
-    rev_base_full = (hg_log(src, rev_base, "{node}\n"))[0]
-    splicemap_entry = "#{revmap.last[0].to_i + 1} #{revmap.last[0].to_i},#{rev_base_full}"
+    rev_goal_full = (hg_log(src, rev_goal, "{node}\n"))[0]
+    splicemap_entry = "#{revmap.last[0].to_i + 1} #{revmap.last[0].to_i},#{rev_goal_full}"
   end
 
   # Write .hgxplantlog
