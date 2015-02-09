@@ -62,7 +62,7 @@ def pause(msg = "Press enter key to continue (CTRL-C to abort)")
   ignored = STDIN.gets
 end
 
-def check(check_script, dir = $DIR_WORK)
+def check(check_script, dir)
     if check_script == 'internal:none' then
       return true
     elsif check_script == 'internal:make' then
@@ -91,7 +91,7 @@ def patch_and_check(dst, patch, patchlevel, check_script)
     puts "Patching..."
     if not system(patch_cmd)  then
       if File.exist?(File.join(dst, 'CVS')) then
-        puts "Patchig failed. You may revert CVS working copy by:"
+        puts "Patching failed. You may revert CVS working copy by:"
         puts ""
         puts "    (cd #{dst} && cvs upd -C)"
         puts ""
@@ -131,6 +131,31 @@ def hg_wc_revision(repo)
   return hg_log(repo, '.')[0].chop
 end
 
+def force_update(src, src_rev, dst)
+  begin
+    # First, create working copy to diff.
+    # It has to in the same directory as source
+    src_for_diff = "#{dst}.hg.#{src_rev}"
+    if not File.exist?(src_for_diff) then
+      puts "Cloning fresh #{src_rev}..."
+      cmd = "hg clone -u #{src_rev} #{src} #{src_for_diff}"
+
+      system cmd
+      if not $?.success? then
+        error("Failed to clone fresh #{src_rev}")
+      end
+    end
+    puts "Updating..."
+    Dir.chdir  File.dirname(dst) do
+      cmd = "rsync --exclude=CVS --exclude=.hg --exclude=.git --exclude=*.o --exclude=*.H -r --delete #{File.basename(src_for_diff)}/ #{File.basename(dst)}/"
+      puts cmd
+      system cmd
+    end
+    pause()
+  ensure
+  end
+end
+
 
 def hg_diff(repo, rev1, rev2)
   patch = Tempfile.new(["#{rev1}-#{rev2}-", '.patch'])
@@ -144,7 +169,7 @@ def hg_diff(repo, rev1, rev2)
   return patch
 end
 
-def hg_xplant(src, dst, rev_goal, rev_dest, rev_base, revmap, check_script, dry_run = false)
+def hg_xplant(src, dst, rev_goal, rev_dest, rev_base, force, revmap, check_script, dry_run = false)
   puts "Transplanting..."
   puts "  goal rev: #{rev_goal}"
   puts "  dest rev: #{rev_dest}"
@@ -152,9 +177,18 @@ def hg_xplant(src, dst, rev_goal, rev_dest, rev_base, revmap, check_script, dry_
   commits = hg_log(src, "#{rev_base}::#{rev_goal} - #{rev_base}::#{rev_dest}", "  - {node|short}: {author|person}, {date|isodate}: {firstline(desc)}\\n")
   puts "   commits: #{commits.size}"
 
-  patch = hg_diff(src, rev_dest, rev_goal)
-  if not dry_run then
-    patch_and_check(dst, patch, 1, check_script)
+  patch = nil
+  if force then
+    if not dry_run then
+      force_update(src, rev_goal, dst)
+      check(check_script, dst)
+    end
+  else
+    patch = hg_diff(src, rev_dest, rev_goal)
+    if not dry_run then
+      patch_and_check(dst, patch, 1, check_script)
+    end
+
   end
   if commits.size == 1 then
     commits = hg_log(src, "#{rev_base}::#{rev_goal} - #{rev_base}::#{rev_dest}", "{node|short}: {author|person}, {date|isodate}\n\n{desc}\\n")
@@ -220,6 +254,7 @@ def main()
     source = File.expand_path(".")
     destination = nil
     dry_run = false
+    force = false
 
     rev_goal = nil
     rev_dest = nil
@@ -236,13 +271,13 @@ def main()
             source = s
         end
 
-        opts.on("--goal-rev REV", "Transplant revision REV (default is source working copy revision)") do | s |
+        opts.on("-r REV", "--rev REV", "--goal-rev REV", "Transplant revision REV (default is source working copy revision)") do | s |
             rev_goal = s
         end
         opts.on("--dest-rev REV", "Mercurial revision of code in destination") do | s |
             rev_dest = s
         end
-        opts.on('--base-rev REV", "Base revision of --goal-rev and --dest-rev. Used to generate log message. Defaults to latest recorded revision destination .hgxplantmap or greatest common ancestor or --goal-rev and --dest-dev.') do | s |
+        opts.on("--base-rev REV", "Base revision of --goal-rev and --dest-rev. Used to generate log message. Defaults to latest recorded revision destination .hgxplantmap or greatest common ancestor or --goal-rev and --dest-dev.") do | s |
             rev_base = s
         end
 
@@ -252,6 +287,9 @@ def main()
 
         opts.on("--dry-run", "Do not update any files nor patch desctination. Use for testing.") do | s |
             dry_run = true
+        end
+        opts.on("-f", "--force", "Do not merge on top of destination. Force goal revision.") do | s |
+            force = true
         end
 
         opts.on(nil, '--help', "Prints this message") do
@@ -344,7 +382,7 @@ def main()
       error("goal revision equal to base revision - commits may be already transplanted")
     end
 
-    hg_xplant(source, destination, rev_goal, rev_dest, rev_base, revmap, check_script, dry_run)
+    hg_xplant(source, destination, rev_goal, rev_dest, rev_base, force, revmap, check_script, dry_run)
 end
 
 
