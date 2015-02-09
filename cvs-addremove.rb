@@ -46,6 +46,24 @@ end
 
 public
 
+def cvs_ignore_file?(file, ignore = [])
+  if ['CVS', '.hg' , '.', '..', 'README.CVS'].include?(file) then
+    return true
+  end
+  # Builtin patterns...
+  ['*.H', '*.o', '*~', '*.STH', '*.so'].each do | pattern |
+    if File.fnmatch(pattern, file) then
+      return true;
+    end
+  end
+  ignore.each do | pattern |
+    if File.fnmatch(pattern, file) then
+      return true;
+    end
+  end
+  return false
+end
+
 def cvs_for_each(root, ignore = [])
   cvs_ignore_file = File.join(root, '.cvsignore')
   cvs_ignore_list = ignore
@@ -57,11 +75,7 @@ def cvs_for_each(root, ignore = [])
   end
   Dir.new(root).each do | file |
     if not ['CVS', '.hg' , '.', '..', 'README.CVS'].include?(file)
-      ok = true
-      cvs_ignore_list.each do | pattern |
-        ok = ok and (not File.fnmatch(pattern, file))
-      end
-      if ok then
+      if not cvs_ignore_file?(file, ignore) then
         yield File.join(root, file)
       end
     end
@@ -76,6 +90,15 @@ def cvs_entries(directory)
     File.open(entries_file).each do | line |
       file = line.split('/')[1]
       entries << file if file != nil
+    end
+    entries_log_file = File.join(directory, 'CVS', 'Entries.Log')
+    if File.exist?(entries_log_file) then
+      File.open(entries_log_file).each do | line |
+        if (line[0] == 'A') then
+          file = line.split('/')[1]
+          entries << file if file != nil
+        end
+      end
     end
     return entries
   else
@@ -109,10 +132,10 @@ end
 def cvs_remove_all(files, ignore = [])
   return if files.size == 0
   files.each do | file |
-    if File.directory?file then
+    if File.directory?(file) then
       cvs_remove_directory(file)
     else
-      execute("rm #{file}")
+      execute("rm -f #{file}")
     end
   end
   puts "Removing: "
@@ -153,10 +176,12 @@ def cvs_add_remove(root, ignore = [])
         cvs_add_remove(file, ignore)
       end
     else
-      if File.directory?(File.join(file, 'CVS')) then
-        cvs_add_remove(file, ignore)
-      else
-        to_add << file
+      if not cvs_ignore_file?(file, ignore) then
+        if File.directory?(File.join(file, 'CVS')) then
+          cvs_add_remove(file, ignore)
+        else
+          to_add << file
+        end
       end
     end
   end
