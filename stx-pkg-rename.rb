@@ -88,6 +88,10 @@ def rename(oldPkg, newPkg, path = '.')
   oldPkgXlatedUnderscores = oldPkg.tr(':/', '_');
   newPkgXlatedUnderscores = newPkg.tr(':/', '_');
 
+  oldPkgXlatedSlashes = oldPkg.tr(':', '/');
+  newPkgXlatedSlashes = newPkg.tr(':', '/');
+
+
 
   # Validate
   begin
@@ -177,8 +181,8 @@ def rename(oldPkg, newPkg, path = '.')
 
   # Pass 8 - rename & update .rc file
   begin
-    oldRcFile = "#{oldPkgXlatedUnderscores.split('_').last}.rc"
-    newRcFile = "#{newPkgXlatedUnderscores.split('_').last}.rc"
+    oldRcFile = "#{oldPkgXlatedSlashes.split('/').last}.rc"
+    newRcFile = "#{newPkgXlatedSlashes.split('/').last}.rc"
 
     file_move(oldRcFile, newRcFile)
     file_edit_replace(newRcFile, oldPkgXlatedUnderscores, newPkgXlatedUnderscores)
