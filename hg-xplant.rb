@@ -99,7 +99,7 @@ def patch_and_check(dst, patch, patchlevel, check_script)
       error "patching failed for '#{patch}'"
     end
     puts "Checking..."
-    if not check(check_script) then
+    if not check(check_script, dst) then
       error "check failed after applying patch '#{patch}'"
     end
   end
@@ -160,8 +160,9 @@ end
 def hg_diff(repo, rev1, rev2)
   patch = Tempfile.new(["#{rev1}-#{rev2}-", '.patch'])
   patch = patch.path
-  puts "Diffing to #{patch}"
   cmd = "hg --cwd #{repo} diff -r #{rev1} -r #{rev2} > #{patch}"
+  puts "Diffing command: #{cmd}"
+  puts "Diffing to #{patch}"
   system cmd
   if not $?.success? then
     error("Failed to generate diff")
