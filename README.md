@@ -16,6 +16,9 @@ Scripts
 
 * *[cvs-addremove.rb][6]* a script to examine  CVS working copy, `cvs add` allnew files and `cvs remove` all missing files.
 
+* *[bee-pkg-set.rb][7]* simple script to set package name in Bee Smalltalk changeset file (.ch)
+
+
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
 
@@ -31,3 +34,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [4]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-archive-revisions.rb
 [5]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-xplant.rb
 [6]: https://bitbucket.org/janvrany/jv-scripts/src/tip/cvs-addremove.rb
+[7]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-pkg-set.rb
