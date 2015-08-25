@@ -45,7 +45,7 @@ def main()
     end
 
     opts.on('-i', '--inplace', "Modify changeset file in place, i.e., save modified changset back to the file. Similar to sed's -i option. Default is NOT to modify in place.") do | value |
-      packagename = true
+      inplace = true
     end
 
     opts.on('-f', '--force', "Enforce package even for changes that have package already set. Default is OFF") do | value |
