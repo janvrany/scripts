@@ -18,6 +18,11 @@ Scripts
 
 * *[bee-pkg-set.rb][7]* simple script to set package name in Bee Smalltalk changeset file (.ch)
 
+* *[bee.rb][8]* script to run Bee Smalltalk under WINE. 
+
+* *[bee-config.rb][9]* convenience script to open an editor on Bee Smalltalk config file (used by `bee.rb`).
+
+
 
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
@@ -35,3 +40,5 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [5]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-xplant.rb
 [6]: https://bitbucket.org/janvrany/jv-scripts/src/tip/cvs-addremove.rb
 [7]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-pkg-set.rb
+[8]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee.rb
+[9]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-config.rb
