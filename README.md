@@ -14,7 +14,10 @@ Scripts
 
 * *[hg-archive-revisions.rb][4]*: an `hg archive` wrapper which allows to export multiple revisions at once, in the same way `hg export` can. Handy for generating complete archives for those who don't like patches :-)
 
-* *[hg-xplant.rb][5]*: a script to transplant changes from M ercurial repositoryto other, non-Mercurial working copy (such as CVS checkout).
+* *[hg-xplant.rb][5]*: a script to transplant changes from Mercurial repository to other, non-Mercurial working copy (such as CVS checkout).
+
+* *[hg-xpull.rb][11]*: a script to incrementally pull changes from non-mercurial repository (using a convert extension). Handy when a forest of Mercurial repositories are forked off a non-Mercurial upstream (such as those of [Smalltalk/X jv-branch][12]).
+
 
 * *[cvs-addremove.rb][6]* a script to examine  CVS working copy, `cvs add` allnew files and `cvs remove` all missing files.
 
@@ -46,3 +49,5 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [8]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee.rb
 [9]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-config.rb
 [10]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-normalize-trace-log.rb
+[11]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-xpull.rb
+[12]: https://swing.fit.cvut.cz/projects/stx-jv
