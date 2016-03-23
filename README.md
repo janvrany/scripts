@@ -24,7 +24,7 @@ Scripts
 
 * *[bee-config.rb][9]* convenience script to open an editor on Bee Smalltalk config file (used by `bee.rb`).
 
-
+* *[bee-extract-c-defines.rb][13]* simple script to extract #define'd constants from C header files and create Smalltalk statements that fill in pool dictionary. 
 
 
 You can find more details about inside these scripts, or run script with `--help`.
@@ -46,3 +46,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [8]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee.rb
 [9]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-config.rb
 [10]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-normalize-trace-log.rb
+[13]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-extract-c-defines.rb
