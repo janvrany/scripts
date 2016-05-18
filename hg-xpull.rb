@@ -5,8 +5,23 @@ into Mercurial repository. This can be used to maintain a fork for code
 in Mercurial when the original code (called upstream here) uses some other
 version control system. 
 
-CAVEATS
-=======
+## Integration with Mercurial
+
+Add following aliases to your "$HOME/.hgrc"
+
+    [alias]
+    xpull=!hg-xpull.rb "$@"
+
+Then you'd be able to run xpull simply as any other Mercurial command: 
+
+    hg xpull 
+
+(Note, that the above assumes that hg-xpull.rb is in your PATH. If not,
+then use full path to the hg-xpull.rb file)
+
+
+## CAVEATS
+
 
 Currently only tested on Linux and supports only CVS upstream, though 
 fixing this would not be much of a work.

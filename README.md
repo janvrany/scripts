@@ -18,6 +18,8 @@ Scripts
 
 * *[hg-xpull.rb][11]*: a script to incrementally pull changes from non-mercurial repository (using a convert extension). Handy when a forest of Mercurial repositories are forked off a non-Mercurial upstream (such as those of [Smalltalk/X jv-branch][12]).
 
+* *[hg-automerge.rb][13]*: a script to automate branch merge. May be used in
+conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[cvs-addremove.rb][6]* a script to examine  CVS working copy, `cvs add` allnew files and `cvs remove` all missing files.
 
@@ -50,3 +52,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [10]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-normalize-trace-log.rb
 [11]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-xpull.rb
 [12]: https://swing.fit.cvut.cz/projects/stx-jv
+[13]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-automerge.rb
