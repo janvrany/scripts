@@ -28,15 +28,14 @@ Scripts
 * *[bee-config.rb][9]* convenience script to open an editor on Bee Smalltalk config file (used by `bee.rb`).
 
 
-
-
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
 
 Installation
 ------------
 
-Each script is standalone, so just copy it wherever convenient for you and run it.
+Just clone the repository to some location and add it to the `PATH`. 
+
 However, you may need to install Ruby to run Ruby scripts (those with `.rb` suffix)
 
 [1]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bisect.rb
