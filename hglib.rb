@@ -2,6 +2,7 @@
 # of lightweight Mercurial library used by other scripts.
 
 if not $LOGGER then
+  require 'logger'
   $LOGGER = Logger.new(STDOUT)
   $LOGGER.level = Logger::INFO  
 end
@@ -64,14 +65,14 @@ module HG
   end
 
   class Repository
-    attr_accessor :root, :config
+    attr_accessor :path, :config
 
     def hgrc() 
-      return File.join(@root, '.hg', 'hgrc')
+      return File.join(@path, '.hg', 'hgrc')
     end
 
     def initialize(directory)
-      @root = directory
+      @path = directory
       config_file = hgrc()
       if File.exist? ( config_file ) 
         $LOGGER.debug("Loading repository config from \"#{config_file}\"")
@@ -82,11 +83,23 @@ module HG
     end
 
     def log(revset, template = "{node|short}")
-      out , success = syso "hg --cwd #{@root} log --rev \"#{revset}\" --template \"#{template}\\n\"" 
+      out , success = syso "hg --cwd #{@path} log --rev \"#{revset}\" --template \"#{template}\\n\"" 
       if success
         return out.split("\n")
       else
         return []
+      end
+    end
+
+    def pull(remote = 'default')
+      if not sys "hg --cwd #{@path} pull #{remote}" then
+        raise Exception.new("Failed to pull from #{remote}")
+      end
+    end
+
+    def push(remote = 'default')
+      if not sys "hg --cwd #{@path} push #{remote}" then
+        raise Exception.new("Failed to push to #{remote}")
       end
     end
 
@@ -103,8 +116,8 @@ module HG
         raise Exception.new("Revision #{rev} does not exist")
       end
       mkdir_p File.dirname(dst);
-      if not sys "hg --config extensions.share= share -U -B #{@root} #{dst}"
-        raise Exception.new("Failed to make shared clone of #{@root}")
+      if not sys "hg --config extensions.share= share -U -B #{@path} #{dst}"
+        raise Exception.new("Failed to make shared clone of #{@path}")
       end
       share = Repository.new(dst)
       share.update(rev);
@@ -117,7 +130,7 @@ module HG
       if not has_revision? rev then
         raise Exception.new("Revision #{rev} does not exist")
       end
-      if not sys "hg --cwd #{@root} update -r #{rev}" then
+      if not sys "hg --cwd #{@path} update -r #{rev}" then
         raise Exception.new("Failed to update working copy to revision '#{rev}'")
       end
     end
@@ -128,7 +141,7 @@ module HG
       if not has_revision? rev then
         raise Exception.new("Revision #{rev} does not exist")
       end
-      return sys "hg --cwd #{@root} merge #{rev}"
+      return sys "hg --cwd #{@path} merge #{rev}"
     end
 
     def commit(message)
@@ -136,7 +149,7 @@ module HG
       if not @config['ui'].has_key? 'username' then
         user_arg = "--user 'Merge Script"
       end
-      if not sys "hg --cwd #{@root} commit -m '#{message}' #{user_arg}" then
+      if not sys "hg --cwd #{@path} commit -m '#{message}' #{user_arg}" then
         raise Exception.new("Failed to commit")
       end
     end
@@ -146,11 +159,14 @@ module HG
     	return revs.size > 0      
     end
 
+    # Lookup a repository in given `directory`. If found,
+    # return it as instance of HG::Repository. If not,
+    # `nil` is returned.
     def self.lookup(directory)
       return nil if not File.exist?(directory)
       repo_dir = directory
       while repo_dir != nil
-        if File.directory?(File.join(repo_dir, '.hg'))
+        if HG::repository? repo_dir
           return Repository.new(repo_dir)
         end
         repo_dir_parent = File.dirname(repo_dir)
@@ -160,6 +176,38 @@ module HG
           repo_dir = repo_dir_parent
         end
       end
+    end    
+
+    # Initializes and empty Mercurial repository in given `directory`
+    def self.init(directory)
+      FileUtils.mkdir_p File.dirname(directory)
+      if not sys "hg init #{directory}" then
+        raise Exception.new("Failed to initialize repository in #{directory}")
+      end
+      return Repository.new(directory)
     end
   end # class Repository 
+
+  # Return `true` if given `directory` is a root of mercurial
+  # repository, `false` otherwise.
+  def self.repository?(directory)
+    return File.directory? File.join(directory, '.hg')
+  end
+
+  # Enumerate all repositories in given `directory`
+  def self.forest(directory, &block)      
+    if repository? directory  
+      yield Repository.new(directory)
+    end
+    Dir.foreach(directory) do |x|
+      path = File.join(directory, x)
+      if File.directory? path       
+        if x == "." or x == ".." or x == ".svn" or x == '.git'
+          next    
+        elsif File.directory?(path)
+          forest(path, &block)
+        end
+      end
+    end  
+  end
 end # module HG

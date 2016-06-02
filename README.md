@@ -33,6 +33,7 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[bee-extract-c-defines.rb][15]* simple script to extract #define'd constants from C header files and create Smalltalk statements that fill in pool dictionary. 
 
+* *[bitbucket-sync.rb][16]* simple script for bi-directional synchronization of BitBucket-hosted repositories with local mirror
 
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
@@ -59,3 +60,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [13]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-automerge.rb
 [14]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hgf.rb
 [15]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-extract-c-defines.rb
+[16]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bitbucket-sync.rb

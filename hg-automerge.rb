@@ -94,7 +94,7 @@ module JV
   module Scripts
     class Hg_automerge
       def automergerc() 
-        return File.join(@repo.root, '.hgautomerge') 	
+        return File.join(@repo.path, '.hgautomerge') 	
       end
 
       def configured?()
@@ -128,7 +128,7 @@ module JV
           return
         else
           if not configured? then
-            $LOGGER.info "hg-automerge not configured for #{@repo.root}"
+            $LOGGER.info "hg-automerge not configured for #{@repo.path}"
             $LOGGER.info "run '#{$0} --config' to configure it."
             return      
           end

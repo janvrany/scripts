@@ -161,11 +161,11 @@ module JV
         splicemap = nil
         xpull_remote_repo_is_cvs = false
         if not @repo.config.has_section?('xpull')
-          raise Exception.new("No xpull configured in #{@repo.root}. Run --configure to configure it")
+          raise Exception.new("No xpull configured in #{@repo.path}. Run --configure to configure it")
           return
         end
         if not @repo.config['xpull'].has_key?('repository')
-          raise Exception.new("No xpull.repository configured for #{@repo.root}")
+          raise Exception.new("No xpull.repository configured for #{@repo.path}")
           return
         end
         xpull_remote_repo = @repo.config['xpull']['repository']      
@@ -200,7 +200,7 @@ module JV
           xpull_remote_repo_subdir = @repo.config['xpull']['repository-subdir']
         end
 
-        $LOGGER.info("Pulling changes from #{xpull_remote_repo}#{xpull_remote_repo_subdir ? ' subdirectory ' + xpull_remote_repo_subdir : ''} into #{@root}")
+        $LOGGER.info("Pulling changes from #{xpull_remote_repo}#{xpull_remote_repo_subdir ? ' subdirectory ' + xpull_remote_repo_subdir : ''} into #{@path}")
 
         begin
           # Conversion of a CVS repository needs a sandbox

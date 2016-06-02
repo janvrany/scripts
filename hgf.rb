@@ -19,6 +19,10 @@ require 'fileutils'
 
 include FileUtils
 
+$:.push(File.dirname($0))
+require 'hglib'
+
+
 # List of commands ALWAYS treated as Mercurial commands
 # Obtained by
 # 
@@ -89,10 +93,6 @@ HG_COMMANDS=[
 "strip", #         strip changesets and their descendants from history
 ]
 
-def repository?(directory)  
-  return File.directory? File.join(directory, '.hg')
-end
-
 def command?(command)
   hg_command_candidates = HG_COMMANDS.select { | c | c.start_with? command }
   if not hg_command_candidates.empty? then
@@ -115,22 +115,6 @@ def command?(command)
     end
   end
   return false
-end
-
-def walk(directory, &block)  
-  if repository? directory  
-    yield directory  
-  end
-  Dir.foreach(directory) do |x|
-    path = File.join(directory, x)
-    if File.directory? path       
-      if x == "." or x == ".." or x == ".svn" or x == '.git'
-        next    
-      elsif File.directory?(path)
-        walk(path, &block)
-      end
-    end
-  end  
 end
 
 def run!
@@ -161,15 +145,17 @@ def run!
     puts "Not a directory: #{root_dir}"
     exit 2
   end
-  walk(root_dir) do | repo_path |    
+  HG::forest(root_dir) do | repo |    
     begin
       if print 
-        puts repo_path
+        puts repo.path
       else
         if command? ARGV[0]         
-          system *ARGV
+          FileUtils.chdir repo.path do
+            system *ARGV
+          end
         else
-          system('hg' , '--cwd' , repo_path, *ARGV)
+          system('hg' , '--cwd' , repo.path, *ARGV)
         end
       end
     rescue Interrupt
