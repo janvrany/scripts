@@ -21,6 +21,8 @@ Scripts
 * *[hg-automerge.rb][13]*: a script to automate branch merge. May be used in
 conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
+* *[hgf.rb][14]*: a script to execute command on all repositories in a repository forest. 
+
 * *[cvs-addremove.rb][6]* a script to examine  CVS working copy, `cvs add` allnew files and `cvs remove` all missing files.
 
 * *[bee-pkg-set.rb][7]* simple script to set package name in Bee Smalltalk changeset file (.ch)
@@ -53,3 +55,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [11]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-xpull.rb
 [12]: https://swing.fit.cvut.cz/projects/stx-jv
 [13]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-automerge.rb
+[14]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hgf.rb
