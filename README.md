@@ -32,6 +32,8 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 * *[bee-config.rb][9]* convenience script to open an editor on Bee Smalltalk config file (used by `bee.rb`).
 
 * *[bee-extract-c-defines.rb][15]* simple script to extract #define'd constants from C header files and create Smalltalk statements that fill in pool dictionary. 
+
+
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
 
