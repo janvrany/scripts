@@ -251,7 +251,7 @@ module JV
           cmd += (authormap ? ' --authors ' + authormap.path : '')
           cmd += (branchmap ? ' --branchmap ' + branchmap.path : '')
           cmd += (splicemap ? ' --splicemap ' + splicemap : '')
-          cmd += " #{xpull_remote_sandbox}/#{xpull_remote_repo_subdir} #{@repo.root}"
+          cmd += " #{xpull_remote_sandbox}/#{xpull_remote_repo_subdir} #{@repo.path}"
 
           if not sys(cmd)
             $LOGGER.error("Cannot xpull changes (hg convert failed)")

@@ -18,8 +18,8 @@ To pull changes from all public repositories starting with 'stx-' or 'jv-' or
 'ctu-' but not repository 'stx-goodies-builder-rake', jv-knowledge' or
  'jv-scripts' from https://bitbucket.org/janvrany to a current directory:
 
-bitbucket-sync.rb --user janvrany --pull \
-                  --include '^stx-|^jv-|^ctu-' \
+bitbucket-sync.rb --user janvrany --pull \\
+                  --include '^stx-|^jv-|^ctu-' \\
                   --exclude 'stx-goodies-builder-rake|jv-knowledgebase|jv-scripts'
 
 DOCEND
@@ -256,7 +256,7 @@ def run!()
     end
 
     optparser.on(nil, '--push', "Only push changes from local mirror to BitBucket") do
-      opts[:action] = :pull
+      opts[:action] = :push
     end
 
     optparser.on(nil, '--dry-run', "Process as normal but do not actually push or pull changes. Implies --verbose") do
@@ -285,7 +285,7 @@ def run!()
 
     optparser.on(nil, '--help', "Prints this message") do
       puts DOCUMENTATION
-      puts optparse.help()
+      puts optparser.help()
       exit 0
     end
   end

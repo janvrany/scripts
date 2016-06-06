@@ -40,8 +40,53 @@ end
 module HG
   @@config = nil
 
-  def self.hg()
-  	raise Exception.new("Not yet implemented")
+  GLOBAL_OPTIONS= ['cwd', 'repository', 'noninteractive', 'config', 'debug', 'debugger',
+       'encoding','encodingmode','traceback','time', 'profile','version', 'help',
+       'hiddem' ]
+  # Execute `hg` command with given positional arguments and
+  # keyword arguments turned into command options. For example, 
+  #
+  #     HG::hg("heads", "default", cwd: '/tmp/testrepo')
+  #
+  # will result in executing
+  # 
+  #     hg --cwd '/tmp/testrepo' heads default
+  #
+  # In addition if block is passed, then the block is evaluate with
+  # `hg` command exit status (as Process::Status) and (optionally)
+  # with contents of `hg` command stdout and stderr. 
+  # If no block is given, an exception is raised when `hg` command 
+  # exit status IS NOT zero.
+  def self.hg(command, *args, **options, &block)
+    g_opts = []
+    c_opts = []
+    options.each do | k , v |       
+      if v != false
+        if GLOBAL_OPTIONS.include? k then
+          g_opts << (k.size == 1 ? "-#{k}" : "--#{k}") << (v == true ? '' : v)
+        else
+          c_opts << (k.size == 1 ? "-#{k}" : "--#{k}") << (v == true ? '' : v)
+        end
+      end
+    end
+    cmd = ['hg'] + g_opts + [command] + c_opts + args  
+    if block_given? then
+      stdout, stderr, status = Open3.capture3(*cmd)
+      case block.arity
+      when 1        
+        yield status
+      when 2        
+        yield status, stdout
+      when 3        
+        yield status, stdout, stderr
+      else
+        raise Exception.new("invalid arity of given block")
+      end
+    else
+      if not system(*cmd) then
+        raise Exception.new("command failed: #{cmd.join(' ')}")
+      end
+    end    
   end
 
   def self.config()
@@ -67,6 +112,12 @@ module HG
   class Repository
     attr_accessor :path, :config
 
+    # Like HG:hg, but passes --cwd @path
+    def hg(command, *args, **options, &block)
+      options[:cwd] = @path
+      HG::hg(command, *args, **options, &block)
+    end
+
     def hgrc() 
       return File.join(@path, '.hg', 'hgrc')
     end
@@ -82,25 +133,30 @@ module HG
       end
     end
 
-    def log(revset, template = "{node|short}")
-      out , success = syso "hg --cwd #{@path} log --rev \"#{revset}\" --template \"#{template}\\n\"" 
-      if success
-        return out.split("\n")
-      else
-        return []
+    def log(revset, template = "{node|short}")      
+      log = []
+      hg("log", rev: revset, template: template) do | status, out |     
+        if status.success?
+          log = out.split("\n")
+        end
       end
+      return log
     end
 
     def pull(remote = 'default')
-      if not sys "hg --cwd #{@path} pull #{remote}" then
-        raise Exception.new("Failed to pull from #{remote}")
+      hg("pull", remote) do | status |
+        if not status.success? then
+          raise Exception.new("Failed to pull from #{remote}")
+        end
       end
     end
 
     def push(remote = 'default')
-      if not sys "hg --cwd #{@path} push #{remote}" then
-        raise Exception.new("Failed to push to #{remote}")
-      end
+      hg("pull", remote) do | status |
+        if status.exitstatus != 0 and status.exitstatus != 1 then
+          raise Exception.new("Failed to pull from #{remote}")
+        end
+      end      
     end
 
     # Create a shared clone in given directory, Return a new
@@ -116,9 +172,7 @@ module HG
         raise Exception.new("Revision #{rev} does not exist")
       end
       mkdir_p File.dirname(dst);
-      if not sys "hg --config extensions.share= share -U -B #{@path} #{dst}"
-        raise Exception.new("Failed to make shared clone of #{@path}")
-      end
+      HG::hg("share", path, dst, config: 'extensions.share=', noupdate: true, bookmarks: false)
       share = Repository.new(dst)
       share.update(rev);
       return share
@@ -130,9 +184,7 @@ module HG
       if not has_revision? rev then
         raise Exception.new("Revision #{rev} does not exist")
       end
-      if not sys "hg --cwd #{@path} update -r #{rev}" then
-        raise Exception.new("Failed to update working copy to revision '#{rev}'")
-      end
+      hg("update", rev: rev)
     end
 
     # Merge given revision. Return true, if the merge was
@@ -141,17 +193,17 @@ module HG
       if not has_revision? rev then
         raise Exception.new("Revision #{rev} does not exist")
       end
-      return sys "hg --cwd #{@path} merge #{rev}"
+      hg("merge", rev) do | status |
+        return status.success?
+      end
     end
 
     def commit(message)
-      user_arg = ''
+      user = ''
       if not @config['ui'].has_key? 'username' then
-        user_arg = "--user 'Merge Script"
+        user = @config['ui']['username']
       end
-      if not sys "hg --cwd #{@path} commit -m '#{message}' #{user_arg}" then
-        raise Exception.new("Failed to commit")
-      end
+      hg("commit", message: message, user: user)
     end
 
     def has_revision?(rev)
@@ -181,9 +233,7 @@ module HG
     # Initializes and empty Mercurial repository in given `directory`
     def self.init(directory)
       FileUtils.mkdir_p File.dirname(directory)
-      if not sys "hg init #{directory}" then
-        raise Exception.new("Failed to initialize repository in #{directory}")
-      end
+      HG::hg("init", directory)
       return Repository.new(directory)
     end
   end # class Repository 
