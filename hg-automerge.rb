@@ -37,6 +37,19 @@ DEFAULT = <<DEFEND
 #
 # automerge = default:jv
 # automerge = default:jv
+#
+# If defined and if merge succeeds (there are no unresolved conflicts), 
+# check the merged working copy using given command. The command is executed
+# with CWD set to repository root. `\#\{dir\}` in the command string will be 
+# expanded to actuall repository path. 
+# Following commands are built-in: 
+# 
+# * internal:make - run `make`
+#
+# A command line option --check overrides this setting. See `hg-automerge --help`.
+# 
+# checkcmd = internal:make
+# checkcmd = internal:make
 DEFEND
 
 require 'fileutils'
@@ -54,7 +67,9 @@ if not $LOGGER then
 end
 
 $:.push(File.dirname($0))
+require 'scriptutils'
 require 'hglib'
+
 
 def edit(file) 
   editors = [
@@ -112,7 +127,7 @@ module JV
         options[:repository] ||= File.expand_path('.')
         options[:config] ||= false
         options[:interactive] ||= STDOUT.tty?
-        
+
         @repo = HG::Repository.lookup(options[:repository])
         if not @repo 
           $LOGGER.error("No Mercurial repository find in \"#{options[:repository]}\"")
@@ -132,6 +147,7 @@ module JV
             $LOGGER.info "run '#{$0} --config' to configure it."
             return      
           end
+          
           from_branch, into_branch = @repo.config['automerge']['automerge'].split(':')
           if from_branch == nil then 
             $LOGGER.warn("from_branch is nil")
@@ -173,8 +189,7 @@ module JV
           merge_wc = @repo
           begin
             begin
-              if repo_rev != into_branch_revs[0] then
-                binding.pry
+              if repo_rev != into_branch_revs[0] then                
                 $LOGGER.debug "Creating temporary clone in #{merge_wc_dir}"
                 merge_wc_dir = Dir.mktmpdir()
                 merge_wc = @repo.share("#{merge_wc_dir}/x");
@@ -187,15 +202,33 @@ module JV
               end
               if merge_wc.merge(from_branch) then
                 $LOGGER.debug "Merge succeeded"
-                if confirm("Merge succeeded, commit?", true, options[:interactive])  
-                  $LOGGER.debug "Commiting"
-                  merge_wc.commit("Merge");
+                commit = false
+                options[:check] ||= @repo.config['automerge']['checkcmd']
+                if options[:check]
+                  $LOGGER.debug "Checking merged sources"                  
+                  if not ScriptUtils::check(merge_wc.path, options[:check])
+                    $LOGGER.warn "Merge check failed"                    
+                  else
+                    commit = true;
+                  end
+                else
+                  # No check command, assume working copy is OK
+                  commit = true;
+                end
+                if commit 
+                  if confirm("Merge succeeded, commit?", true, options[:interactive])  
+                    $LOGGER.debug "Commiting"
+                    merge_wc.commit("Merge");
+                  end
                 end
               else
-                $LOGGER.warning "Merge failed"
+                $LOGGER.warn "Merge failed"
               end
-            rescue ex
-              $LOGGER.error "error when merging: #{ex.description}"
+            rescue => ex
+              if STDOUT.tty? 
+                print ex.backtrace.join("\n")
+              end
+              nn
             end
           ensure
             if merge_wc_dir then
@@ -224,8 +257,12 @@ def run!()
     end
 
     optparser.on(nil, '--non-interactive', "Run in non-interactive mode. Default is true if run from an interactive session, false otherwise.") do 
-      OPTIONS[:interactive] = false
-    end      
+      opts[:interactive] = false
+    end    
+
+    optparser.on('-M', '--check COMMAND', "Run given COMMAND to check merged source") do | cmd |
+      opts[:check] = cmd
+    end 
 
     optparser.on(nil, '--verbose', "Print more information during processing") do
       if ($LOGGER.level > Logger::INFO) 
@@ -255,6 +292,16 @@ def run!()
   end
   optparser.parse! 
 
+  #if STDOUT.tty? 
+  #  begin 
+  #    require 'highline'
+  #  rescue LoadError => ex
+  #    $LOGGER.info "Gem highline not installed"
+  #    $LOGGER.info "Run 'gem install highline' to install."
+  #    exit 1;
+  #  end
+  #end
+  
   JV::Scripts::Hg_automerge.new().run(ARGV, opts)
 end
 
