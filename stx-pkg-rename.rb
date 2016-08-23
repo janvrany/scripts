@@ -76,9 +76,13 @@ def file_move(oldFile, newFile)
 end
 
 def file_edit_replace(file, pattern, replacement)
-  contents = File.read(file)
-  contents.gsub!(Regexp.new(pattern), replacement)
-  File.open(file, "w") {|file| file.puts contents}
+  begin
+    contents = File.read(file)
+    contents.gsub!(Regexp.new(pattern), replacement)
+    File.open(file, "w") {|file| file.puts contents}
+  rescue Exception => e  
+    error("Failed to edit file #{file}: #{e.message}")
+  end
 end
 
 
