@@ -200,7 +200,7 @@ module JV
         inclpat = @options[:include] || nil        
         exclpat = @options[:exclude] || nil        
         if user == nil then
-          LOGGER.error("No user specified (use --user USER)")
+          $LOGGER.error("No user specified (use --user USER)")
           exit 1
         end
         account = BitBucket::Account.new(user)
