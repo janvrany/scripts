@@ -104,16 +104,22 @@ module BitBucket
       return ! self.public?
     end
 
-    def pull_url
+    def pull_url(prefer_ssh = false)
       urls = @data['links']['clone']
+      if prefer_ssh 
+        urls.each { | url | return url['href'] if url['name'] == 'ssh' }
+      end
       urls.each { | url | return url['href'] if url['name'] == 'https' }
       urls.each { | url | return url['href'] }
       return nil
     end
 
-    def push_url
+    def push_url(prefer_ssh = true)
       urls = @data['links']['clone']
-      urls.each { | url | return url['href'] if url['name'] == 'ssh' }
+      if prefer_ssh 
+        urls.each { | url | return url['href'] if url['name'] == 'ssh' }
+      end
+      urls.each { | url | return url['href'] if url['name'] == 'https' }
       urls.each { | url | return url['href'] }
       return nil
     end
@@ -148,7 +154,10 @@ module JV
   module Scripts
     class BitBucket_sync
       def sync(remote)
-        local = @map[remote.pull_url] || nil
+        prefer_ssh = @options[:ssh] || false
+        pull_url = remote.pull_url(prefer_ssh)
+        push_url = remote.push_url()
+        local = @map[pull_url] || nil
         if not local then
           root = @options[:root] || '.'
           repo_path = File.join(root, remote.slug)
@@ -156,8 +165,8 @@ module JV
             local = HG::Repository::init(repo_path)
             File.open(local.hgrc(), "a") do | f |
               f.write "[paths]\n"
-              f.write "default = #{remote.pull_url}\n"
-              f.write "default-push = #{remote.push_url}\n"
+              f.write "default = #{pull_url}\n"
+              f.write "default-push = #{push_url}\n"
               f.write "\n"
               f.write "[web]\n"
               f.write "description = #{remote.description}\n"
@@ -166,26 +175,30 @@ module JV
           else
             local = HG::Repository.new(repo_path)
           end
-          @map[remote.pull_url] = local
+          @map[pull_url] = local
         end
         sync0(remote, local)        
       end
 
       def sync0(remote, local)
         action = @options[:action] || :pullpush
+        prefer_ssh = @options[:ssh] || false
+        pull_url = remote.pull_url(prefer_ssh)
+        push_url = remote.push_url()
+        
         if @options[:dryrun] || false then
-          puts "#{action} remote: #{remote.pull_url} local: #{local.path}"
+          puts "#{action} remote: #{pull_url} local: #{local.path}"
         elsif action == :incoming then
-          sys "hg --cwd #{local.path} incoming #{remote.pull_url}"
+          sys "hg --cwd #{local.path} incoming #{pull_url}"
         elsif action == :pull then
-          local.pull(remote.pull_url)
+          local.pull(pull_url)
         elsif action == :outgoing then
-          sys "hg --cwd #{local.path} outgoing #{remote.push_url}"
+          sys "hg --cwd #{local.path} outgoing #{push_url}"
         elsif action == :push then
-          local.push(remote.push_url)
+          local.push(push_url)
         elsif action == :pullpush then
-          local.pull(remote.pull_url)
-          local.push(remote.push_url)
+          local.pull(pull_url)
+          local.push(push_url)
         else
           $LOGGER.error("Unknown action '#{action}'")
           exit 1
@@ -242,9 +255,12 @@ def run!()
       opts[:exclude] = Regexp.new(value)
     end    
 
-
     optparser.on(nil, '--incoming', "Only show changes at BitBucket not in local mirror") do
       opts[:action] = :incoming
+    end
+
+    optparser.on(nil, '--ssh', "Prefer ssh:// protocol to pull from repository (default is to prefer https://") do | value |
+      opts[:ssh] = true
     end
 
     optparser.on(nil, '--pull', "Only pull changes from BitBucket to local mirror") do
