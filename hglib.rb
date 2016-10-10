@@ -1,6 +1,8 @@
 # This file is not a standalone script. It is a kind
 # of lightweight Mercurial library used by other scripts.
 
+require 'uri'
+
 if not $LOGGER then
   require 'logger'
   $LOGGER = Logger.new(STDOUT)
@@ -40,9 +42,9 @@ end
 module HG
   @@config = nil
 
-  GLOBAL_OPTIONS= ['cwd', 'repository', 'noninteractive', 'config', 'debug', 'debugger',
-       'encoding','encodingmode','traceback','time', 'profile','version', 'help',
-       'hiddem' ]
+  GLOBAL_OPTIONS= [:'cwd', :'repository', :'noninteractive', :'config', :'debug', :'debugger',
+       :'encoding',:'encodingmode',:'traceback',:'time', :'profile',:'version', :'help',
+       :'hidden' ]
   # Execute `hg` command with given positional arguments and
   # keyword arguments turned into command options. For example, 
   #
@@ -61,15 +63,29 @@ module HG
     g_opts = []
     c_opts = []
     options.each do | k , v |       
-      if v != false
-        if GLOBAL_OPTIONS.include? k then
-          g_opts << (k.size == 1 ? "-#{k}" : "--#{k}") << (v == true ? '' : v)
+      if v != false                
+        o = k.size == 1 ? "-#{k}" : "--#{k}"                
+        if GLOBAL_OPTIONS.include? k then                  
+          if v.kind_of?(Array)
+            v.each do | e |
+              g_opts << o << (e == true ? '' : e)  
+            end
+          else
+            g_opts << o << (v == true ? '' : v)
+          end
         else
-          c_opts << (k.size == 1 ? "-#{k}" : "--#{k}") << (v == true ? '' : v)
+          if v.kind_of?(Array)
+            v.each do | e |
+              c_opts << o << (e == true ? '' : e)  
+            end
+          else
+            c_opts << o << (v == true ? '' : v)
+          end
         end
       end
     end
-    cmd = ['hg'] + g_opts + [command] + c_opts + args  
+    cmd = ['hg'] + g_opts + [command] + c_opts + args      
+    $LOGGER.debug("executing: #{cmd.join(' ')}")
     if block_given? then
       stdout, stderr, status = Open3.capture3(*cmd)
       case block.arity
@@ -143,16 +159,46 @@ module HG
       return log
     end
 
-    def pull(remote = 'default')
-      hg("pull", remote) do | status |
+    def pull(remote = 'default', user: nil, pass: nil)
+      authconf = []
+      if pass != nil then
+        if user == nil then
+          raise Exception.new("Password given but not username! Use user: named param to specify username.")
+        end
+        # If user/password is provided, make sure we don't have
+        # username in remote URI. Otherwise Mercurial won't use 
+        # password from config!
+        uri = URI.parse(remote)
+        uri.user = nil
+        remote = uri.to_s        
+        authconf << "auth.bb.prefix=#{remote}"
+        authconf << "auth.bb.username=#{user}"        
+        authconf << "auth.bb.password=#{pass}"        
+      end
+      hg("pull", remote, config: authconf) do | status |
         if not status.success? then
           raise Exception.new("Failed to pull from #{remote}")
         end
       end
     end
 
-    def push(remote = 'default')
-      hg("pull", remote) do | status |
+    def push(remote = 'default', user: nil, pass: nil)
+      authconf = []
+      if pass != nil then
+        if user == nil then
+          raise Exception.new("Password given but not username! Use user: named param to specify username.")
+        end
+        # If user/password is provided, make sure we don't have
+        # username in remote URI. Otherwise Mercurial won't use 
+        # password from config!
+        uri = URI.parse(remote)
+        uri.user = nil
+        remote = uri.to_s                
+        authconf << "bb.prefix = #{remote}"
+        authconf << "bb.username = #{user}"        
+        authconf << "bb.password = #{pass}"        
+      end
+      hg("pull", remote, config: authconf) do | status |
         if status.exitstatus != 0 and status.exitstatus != 1 then
           raise Exception.new("Failed to pull from #{remote}")
         end

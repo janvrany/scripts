@@ -46,11 +46,21 @@ require 'hglib'
 
 module Net
   class HTTP
-    def self.get_json(uri) 
+    def self.get_json(uri, user=nil, pass=nil) 
       if uri.is_a? String then
         uri = URI(uri)
       end
-      data = get(uri)      
+      req = Net::HTTP::Get.new(uri)
+      if pass != nil then
+        if user == nil then
+          raise Exception.new("Password given but not username! Use user: named param to specify username.")
+        end
+        req.basic_auth(user, pass)      
+      end      
+      res = Net::HTTP.start(uri.hostname, uri.port, :use_ssl => uri.scheme == 'https') {|http|
+        http.request(req)
+      }
+      data = res.body    
       return JSON.parse(data)
     end
   end
@@ -61,26 +71,28 @@ module BitBucket
   API_2_0_REPOSITORIES_URL = API_2_0_BASE_URL + '/repositories'
 
   class Account
-    attr_accessor :name
+    attr_accessor :name, :pass
 
-    def initialize(name) 
+    def initialize(name, pass = nil) 
       @name = name
+      @pass = pass
     end
 
     def repositories()
       if @repositories == nil then        
-        data = BitBucket::get_json(API_2_0_REPOSITORIES_URL + '/' + @name)        
-        @repositories = data.collect { | e | Repository.new(self, e) }
+        data = BitBucket::get_json(API_2_0_REPOSITORIES_URL + '/' + @name, @name, @pass)        
+        @repositories = data.collect { | d | Repository.new(@name, @pass, d) }
       end
       return @repositories
     end
   end
 
   class Repository
-    attr_accessor :user
+    attr_accessor :user, :pass
 
-    def initialize(user, data) 
+    def initialize(user, pass, data) 
       @user = user
+      @pass = pass
       @data = data
     end
 
@@ -130,10 +142,10 @@ module BitBucket
 
   end
 
-  def self.get_json(uri)    
+  def self.get_json(uri, user = nil, pass = nil)    
     data = []
     while uri != nil do
-      part = Net::HTTP::get_json(uri)
+      part = Net::HTTP::get_json(uri, user, pass)
       if part.has_key? 'page' and part.has_key? 'pagelen' and part.has_key? 'values' then
         # Paginated result, see
         # 
@@ -185,20 +197,22 @@ module JV
         prefer_ssh = @options[:ssh] || false
         pull_url = remote.pull_url(prefer_ssh)
         push_url = remote.push_url()
-        
+        user = remote.user
+        pass = remote.pass
+
         if @options[:dryrun] || false then
           puts "#{action} remote: #{pull_url} local: #{local.path}"
         elsif action == :incoming then
           sys "hg --cwd #{local.path} incoming #{pull_url}"
         elsif action == :pull then
-          local.pull(pull_url)
+          local.pull(pull_url, user: user, pass: pass)
         elsif action == :outgoing then
           sys "hg --cwd #{local.path} outgoing #{push_url}"
         elsif action == :push then
-          local.push(push_url)
+          local.push(push_url, user: user, pass: pass)
         elsif action == :pullpush then
-          local.pull(pull_url)
-          local.push(push_url)
+          local.pull(pull_url, user: user, pass: pass)
+          local.push(push_url, user: user, pass: pass)
         else
           $LOGGER.error("Unknown action '#{action}'")
           exit 1
@@ -209,6 +223,7 @@ module JV
         @options = options
         @map = {}
         user = @options[:user] || nil
+        pass = @options[:pass] || nil
         priv = @options[:private] || false
         inclpat = @options[:include] || nil        
         exclpat = @options[:exclude] || nil        
@@ -216,7 +231,7 @@ module JV
           $LOGGER.error("No user specified (use --user USER)")
           exit 1
         end
-        account = BitBucket::Account.new(user)
+        account = BitBucket::Account.new(user, pass)
         account.repositories.each do | repo |                  
           if (repo.hg?) and
              (priv or repo.public?) and
@@ -241,6 +256,10 @@ def run!()
 
     optparser.on('-u', '--user USER', "Sync repositories of USER") do | value |
       opts[:user] = value
+    end
+
+    optparser.on('-p', '--pass PASS', "UNSECURE! Use given PASS for HTTP authentication") do | value |
+      opts[:pass] = value
     end
 
     optparser.on(nil, '--private', "Synchronize also private repositories") do
