@@ -177,7 +177,7 @@ module JV
         local = @map[pull_url] || nil
         if not local then
           root = @options[:root] || '.'
-          repo_path = File.join(root, remote.slug)
+          repo_path = File.absolute_path(File.join(root, remote.slug))
           if not HG::repository? repo_path     
             $LOGGER.info("Creating repository in #{repo_path}, remote #{pull_url}")
             local = HG::Repository::init(repo_path)
