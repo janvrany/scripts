@@ -4,9 +4,14 @@
 require 'uri'
 
 if not $LOGGER then
-  require 'logger'
-  $LOGGER = Logger.new(STDOUT)
-  $LOGGER.level = Logger::INFO  
+  if STDOUT.tty? then
+    require 'logger'
+    $LOGGER = Logger.new(STDOUT)
+    $LOGGER.level = Logger::INFO  
+  else 
+    require 'syslog/logger'
+    $LOGGER = Syslog::Logger.new($0)    
+  end
 end
 
 begin

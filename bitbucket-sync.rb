@@ -27,7 +27,6 @@ DOCEND
 require 'fileutils'
 require 'tmpdir'
 require 'optparse'
-require 'logger'
 require 'tempfile'
 require 'open3'
 
@@ -37,8 +36,14 @@ require 'json'
 include FileUtils
 
 if not $LOGGER then
-  $LOGGER = Logger.new(STDOUT)
-  $LOGGER.level = Logger::INFO  
+  if STDOUT.tty? then
+    require 'logger'
+    $LOGGER = Logger.new(STDOUT)
+    $LOGGER.level = Logger::INFO  
+  else 
+    require 'syslog/logger'
+    $LOGGER = Syslog::Logger.new($0)    
+  end
 end
 
 $:.push(File.dirname($0))
@@ -173,7 +178,8 @@ module JV
         if not local then
           root = @options[:root] || '.'
           repo_path = File.join(root, remote.slug)
-          if not HG::repository? repo_path            
+          if not HG::repository? repo_path     
+            $LOGGER.info("Creating repository in #{repo_path}, remote #{pull_url}")
             local = HG::Repository::init(repo_path)
             File.open(local.hgrc(), "a") do | f |
               f.write "[paths]\n"
@@ -199,20 +205,24 @@ module JV
         push_url = remote.push_url()
         user = remote.user
         pass = remote.pass
+        dryrun = @options[:dryrun] || false
 
-        if @options[:dryrun] || false then
-          puts "#{action} remote: #{pull_url} local: #{local.path}"
-        elsif action == :incoming then
-          sys "hg --cwd #{local.path} incoming #{pull_url}"
+        $LOGGER.debug("performing #{action}, local=#{local.path}, remote=#{pull_url}")
+        if action == :incoming then          
+          sys "hg --cwd #{local.path} incoming #{pull_url}" unless dryrun
         elsif action == :pull then
-          local.pull(pull_url, user: user, pass: pass)
+          $LOGGER.info("#{local.path}: pulling from #{pull_url}")
+          local.pull(pull_url, user: user, pass: pass) unless dryrun
         elsif action == :outgoing then
           sys "hg --cwd #{local.path} outgoing #{push_url}"
         elsif action == :push then
-          local.push(push_url, user: user, pass: pass)
+          $LOGGER.info("#{local.path}: pushing to #{push_url}")
+          local.push(push_url, user: user, pass: pass) unless dryrun
         elsif action == :pullpush then
-          local.pull(pull_url, user: user, pass: pass)
-          local.push(push_url, user: user, pass: pass)
+          $LOGGER.info("#{local.path}: pulling from #{pull_url}")
+          local.pull(pull_url, user: user, pass: pass) unless dryrun
+          $LOGGER.info("#{local.path}: pushing to #{push_url}")
+          local.push(push_url, user: user, pass: pass) unless dryrun
         else
           $LOGGER.error("Unknown action '#{action}'")
           exit 1
@@ -316,6 +326,11 @@ def run!()
         $LOGGER.info "Gems pry and/or pry-byebug not installed, no interactive debugging available"
         $LOGGER.info "Run 'gem install pry pry-byebug' to install."
       end      
+    end
+
+    optparser.on(nil, '--syslog', "Log to syslog rather than to stdout") do
+      require 'syslog/logger'
+      $LOGGER = Syslog::Logger.new($0)          
     end
 
     optparser.on(nil, '--help', "Prints this message") do

@@ -95,8 +95,14 @@ require 'open3'
 include FileUtils
 
 if not $LOGGER then
-  $LOGGER = Logger.new(STDOUT)
-  $LOGGER.level = Logger::INFO 
+  if STDOUT.tty? then
+    require 'logger'
+    $LOGGER = Logger.new(STDOUT)
+    $LOGGER.level = Logger::INFO  
+  else 
+    require 'syslog/logger'
+    $LOGGER = Syslog::Logger.new($0)    
+  end
 end
 
 $:.push(File.dirname($0))
@@ -325,6 +331,11 @@ def run!()
 
     optparser.on(nil, '--configure', "Spawns an editor to configure hg-xpull") do
       opts[:config] = true
+    end
+
+    optparser.on(nil, '--syslog', "Log to syslog rather than to stdout") do
+      require 'syslog/logger'
+      $LOGGER = Syslog::Logger.new($0)          
     end
 
     optparser.on(nil, '--help', "Prints this message") do
