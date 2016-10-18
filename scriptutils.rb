@@ -3,8 +3,31 @@
 
 require 'fileutils'
 
+if not $LOGGER then
+  if STDOUT.tty? then
+    require 'logger'
+    $LOGGER = Logger.new(STDOUT)
+    $LOGGER.level = Logger::INFO  
+  else 
+    require 'syslog/logger'
+    $LOGGER = Syslog::Logger.new($0)    
+  end
+end
+
 module ScriptUtils
   include FileUtils
+
+  @@DRYRUN = false
+
+  module_function
+  def dryrun() 
+    return @@DRYRUN
+  end
+
+  module_function
+  def dryrun=(b)
+    @@DRYRUN = b
+  end
 
   # Given `dir`ectory and a `command`, run the script and return true if it 
   # succeeded (exit code 0), false otherwise. 
@@ -22,10 +45,25 @@ module ScriptUtils
   module_function
   def check(dir, command)    
     if command == 'internal:make'    
-      return system "make -C #{dir}"
+      return sh "make -C #{dir}"
     else      
-      return system String.interpolate { command }
+      return sh String.interpolate { command }
     end
-  end  
+  end
+
+  # Evaluates given command using a shell. Return true if command
+  # returns zero exit status, false otherwise.   
+  # 
+  # If ScriptUtils::dryrun is true, no command is acrually executed
+  # and true is returned. 
+  module_function
+  def sh(*cmd) 
+    $LOGGER.debug("shell: #{cmd.join(' ')}")
+    if @@DRYRUN then
+      return true
+    else
+      return system(*cmd)
+    end
+  end
 end
 
