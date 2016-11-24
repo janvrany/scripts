@@ -2,9 +2,25 @@
 # of lightweight Mercurial library used by other scripts.
 
 require 'uri'
+require 'open3'
+require 'shellwords'
+
+# Following hack is to make hglib.rb working wit both jv:scripts and
+# Smalltalk/X rakefiles. 
+begin
+  require 'rakelib/inifile'
+rescue LoadError => ex
+  begin
+    require 'inifile'
+  rescue LoadError => ex
+    $LOGGER.error("Cannot load package 'inifile'")
+    $LOGGER.error("Run 'gem install inifile' to install it")
+    exit 1
+  end
+end
 
 if not $LOGGER then
-  if STDOUT.tty? then
+  if STDOUT.tty? or win32? then
     require 'logger'
     $LOGGER = Logger.new(STDOUT)
     $LOGGER.level = Logger::INFO  
@@ -12,36 +28,6 @@ if not $LOGGER then
     require 'syslog/logger'
     $LOGGER = Syslog::Logger.new($0)    
   end
-end
-
-begin
-  require 'inifile'
-rescue LoadError => ex
-  $LOGGER.error("Cannot load package 'inifile'")
-  $LOGGER.error("Run 'gem install inifile' to install it")
-  exit 1
-end
-
-def sys(*cmd)
-  $LOGGER.debug("executing: #{cmd.join(' ')}")
-  retval = nil
-  if not $DRYRUN 
-    retval = system(*cmd)
-  else
-    retval = true
-  end
-  return retval
-end
-
-def syso(*cmd)
-  $LOGGER.debug("executing: #{cmd.join(' ')}")
-  retval = nil
-  if not $DRYRUN 
-    output, status = Open3.capture2(*cmd)
-    return output, status.success? 
-  else
-    return '', true
-  end  
 end
 
 module HG
@@ -68,7 +54,7 @@ module HG
     g_opts = []
     c_opts = []
     options.each do | k , v |       
-      if v != false                
+      if v != false and v != nil
         o = k.size == 1 ? "-#{k}" : "--#{k}"                
         if GLOBAL_OPTIONS.include? k then                  
           if v.kind_of?(Array)
@@ -89,8 +75,15 @@ module HG
         end
       end
     end
+    c_opts.reject! { | e | e.size == 0 }
     cmd = ['hg'] + g_opts + [command] + c_opts + args      
-    $LOGGER.debug("executing: #{cmd.join(' ')}")
+    cmd_info = cmd.shelljoin.
+                gsub(/username\\=\S+/, "username\\=***").
+                gsub(/password\\=\S+/, "password\\=***")
+    $LOGGER.debug("executing: #{cmd_info}")
+    if defined? RakeFileUtils then
+      puts cmd_info
+    end
     if block_given? then
       stdout, stderr, status = Open3.capture3(*cmd)
       case block.arity
@@ -133,7 +126,41 @@ module HG
   class Repository
     attr_accessor :path, :config
 
-    # Like HG:hg, but passes --cwd @path
+    # Clone a repository from given `uri` to given `directory`. 
+    # Returns an `HG::Repository` instance representing the repository
+    # clone. 
+    # If `noupdate` is true, working copy is not updated, i.e., will be
+    # empty. Use this when you're going to issue `update(rev)` shortly after.
+    #
+    def self.clone(uri, directory, noupdate: false)
+      host = URI(uri).host
+      # When cloning over LAN, use --uncompressed option
+      # as it tends to be faster if bandwidth is good (1GB norm
+      # these days) amd saves some CPU cycles.      
+      uncompressed = false
+      if host
+        require 'resolv'
+        addr = Resolv.getaddress(host)
+        # Really poor detection of LAN, but since this is an 
+        # optimization, getting this wrong does not hurt.         
+        uncompressed = (addr.start_with? '192.168.') or (addr.start_with? '10.10.')
+      end
+      if noupdate then
+        HG::hg("clone", uri, directory, uncompressed: uncompressed, noupdate: true)
+      else
+        HG::hg("clone", uri, directory, uncompressed: uncompressed)
+      end
+      return HG::Repository.new(directory)
+    end
+
+    # Initializes an empty repository in given directory. Returns an 
+    # `HG::Repository` instance representing the created (empty) repository.
+    def self.init(directory)
+      HG::hg("init", directory)
+      return HG::Repository.new(directory)
+    end
+
+    # Like HG::hg, but passes --cwd @path
     def hg(command, *args, **options, &block)
       options[:cwd] = @path
       HG::hg(command, *args, **options, &block)
@@ -154,17 +181,54 @@ module HG
       end
     end
 
-    def log(revset, template = "{node|short}")      
+    # Return a hashmap with defined paths (alias => uri)
+    def paths() 
+      return @config['paths'].clone
+    end
+
+    # Set paths for given repository
+    def paths=(paths)
+      config = IniFile.new(:filename => self.hgrc())
+      config['paths'] = paths
+      config.write()
+    end
+
+    def log(revset, template = "{node|short}\n")      
       log = []
       hg("log", rev: revset, template: template) do | status, out |     
         if status.success?
+          puts out
           log = out.split("\n")
         end
       end
       return log
     end
 
-    def pull(remote = 'default', user: nil, pass: nil)
+    # Return changeset IDs of all head revisions. 
+    # If `branch` is given, return only heads in given
+    # branch.
+    def heads(branch = nil) 
+      if branch then
+        return log("head() and branch('#{branch}')")
+      else
+        return log("head()")
+      end
+    end
+
+    # Return a hash "bookmark => revision" of all 
+    # bookmarks. 
+    def bookmarks(branch = nil)
+      revset  = "bookmark()"
+      revset += " and branch('#{branch}')" if branch
+      bookmarks = {}
+      self.log(revset, "{bookmarks}|{node|short}\n").each do | line |
+        bookmark, changesetid = line.split("|")
+        bookmarks[bookmark] = changesetid
+      end
+      return bookmarks
+    end
+
+    def pull(remote = 'default', user: nil, pass: nil, rev: nil, bookmarks: [])
       authconf = []
       if pass != nil then
         if user == nil then
@@ -173,21 +237,22 @@ module HG
         # If user/password is provided, make sure we don't have
         # username in remote URI. Otherwise Mercurial won't use 
         # password from config!
-        uri = URI.parse(remote)
+        uri = URI.parse(self.paths[remote] || remote)
         uri.user = nil
-        remote = uri.to_s        
-        authconf << "auth.bb.prefix=#{remote}"
-        authconf << "auth.bb.username=#{user}"        
-        authconf << "auth.bb.password=#{pass}"        
+        uri = uri.to_s
+        uri_alias = if self.paths.has_key? remote then remote else 'xxx' end
+        authconf << "auth.#{uri_alias}.prefix=#{uri}"
+        authconf << "auth.#{uri_alias}.username=#{user}"        
+        authconf << "auth.#{uri_alias}.password=#{pass}"        
       end
-      hg("pull", remote, config: authconf) do | status |
+      hg("pull", remote, config: authconf, rev: nil) do | status |
         if not status.success? then
-          raise Exception.new("Failed to pull from #{remote}")
+          raise Exception.new("Failed to pull from #{remote} (exit code #{status.exitstatus})")
         end
       end
     end
 
-    def push(remote = 'default', user: nil, pass: nil)
+    def push(remote = 'default', user: nil, pass: nil, rev: nil)
       authconf = []
       if pass != nil then
         if user == nil then
@@ -196,16 +261,17 @@ module HG
         # If user/password is provided, make sure we don't have
         # username in remote URI. Otherwise Mercurial won't use 
         # password from config!
-        uri = URI.parse(remote)
+        uri = URI.parse(self.paths[remote] || remote)
         uri.user = nil
-        remote = uri.to_s                
-        authconf << "bb.prefix = #{remote}"
-        authconf << "bb.username = #{user}"        
-        authconf << "bb.password = #{pass}"        
+        uri = uri.to_s
+        uri_alias = if self.paths.has_key? remote then remote else 'xxx' end
+        authconf << "auth.#{uri_alias}.prefix=#{uri}"
+        authconf << "auth.#{uri_alias}.username=#{user}"        
+        authconf << "auth.#{uri_alias}.password=#{pass}"        
       end
-      hg("pull", remote, config: authconf) do | status |
+      hg("push", remote, config: authconf, rev: rev) do | status |
         if status.exitstatus != 0 and status.exitstatus != 1 then
-          raise Exception.new("Failed to pull from #{remote}")
+          raise Exception.new("Failed to push to #{remote} (exit code #{status.exitstatus})")
         end
       end      
     end
@@ -230,12 +296,21 @@ module HG
     end
 
     # Updates the repository's working copy to given 
-    # revision. 
-    def update(rev)
+    # revision if given. If not, update to most-recent
+    # head, as plain
+    #
+    #   hg update
+    #
+    # would do. 
+    def update(rev = nil)
+      if rev 
       if not has_revision? rev then
         raise Exception.new("Revision #{rev} does not exist")
       end
       hg("update", rev: rev)
+      else
+        hg("update")
+      end
     end
 
     # Merge given revision. Return true, if the merge was
@@ -249,11 +324,7 @@ module HG
       end
     end
 
-    def commit(message)
-      user = ''
-      if not @config['ui'].has_key? 'username' then
-        user = @config['ui']['username']
-      end
+    def commit(message, user: nil)
       hg("commit", message: message, user: user)
     end
 
