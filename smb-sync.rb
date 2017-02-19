@@ -77,7 +77,7 @@ module OpenVPN
 
     def initialize(config) 
       @config = config
-      @rundir = Dir.mktmpdir("openvpn", "/run/user/#{Process.uid}"); at_exit { FileUtils.remove_entry ( @rundir ) }
+      @rundir = Dir.mktmpdir("openvpn", "/tmp"); at_exit { FileUtils.remove_entry ( @rundir ) }
       @pidfile = File.join(@rundir, 'openvpn.pid')
       @logfile = File.join(@rundir, 'openvpn.log')      
       FileUtils.touch(@logfile)
@@ -86,15 +86,24 @@ module OpenVPN
     # Start OpenVPN connection. Return true if connection has been
     # (likely) established, false otherwise.
     def start() 
+      if not File.directory? @rundir then
+        $LOGGER.error("Failed to create temporary directory (#{@rundir}")
+        return false;
+      end
       # Start the client in daemon mode
-      cmd = "sudo /usr/sbin/openvpn --config #{@config} --user #{ENV['USER']} --daemon --writepid #{@pidfile} --log #{@logfile}"            
+      user = `id -un`.chop
+      cmd = "sudo -n /usr/sbin/openvpn --config #{@config} --user #{user} --daemon --writepid #{@pidfile} --log #{@logfile}"            
       if not ScriptUtils::sh(cmd) then          
         $LOGGER.error("Failed to establish a VPN connection (openvpn command failed)")
+        $LOGGER.error("Failed command was: #{cmd}")
+        $LOGGER.error("Run  directory was: #{@rundir}")
         return false;
       end
       if ScriptUtils::dryrun
         return true
       end
+      # Wait 3 sec to give openvpn process a chance to write its pid.
+      sleep(3)
       if not File.exist? @pidfile or pid() == nil then
         $LOGGER.error("Failed to establish a VPN connection (pidfile not found)")
         return false;
@@ -162,13 +171,17 @@ end
 module JV
   module Scripts    
     class Smb_sync
+      STATUS_SUCCESS = 0
+      STATUS_FAILED = 127
 
       # Mount a SMB share to a temporary directory. Return
       # true if mount was successfully, false otherwuse.       
       def smb_share_mount(share, mountpoint, credentials)
-        cmd = "sudo mount -t cifs #{share} #{mountpoint} -o credentials=#{credentials},uid=jv,forceuid"       
+        user = `id -un`.chop
+        cmd = "sudo -n mount -t cifs #{share} #{mountpoint} -o credentials=#{credentials},uid=#{user},forceuid"       
         if not ScriptUtils::sh(cmd) then          
-          $LOGGER.error("Failed to mount #{share} (mount failed)")
+          $LOGGER.error("Failed to mount #{share} (mount command failed)")
+          $LOGGER.error("Failed command was: #{cmd}")
           return false
         end        
         at_exit { smb_share_umount(share) }
@@ -201,16 +214,26 @@ module JV
         if not smb_share_mounted?(share)
           return 
         end
-        cmd = "sudo umount #{share}"        
+        cmd = "sudo -n umount #{share}"        
         if not ScriptUtils::sh(cmd) then          
-          $LOGGER.error("Failed to umount #{share} mounted to #{mountpoint}")          
+          $LOGGER.error("Failed to umount #{share} mounted to #{mountpoint} (umount command failed)")          
+          $LOGGER.error("Failed command was: #{cmd}")
         end        
       end
 
-      def sync(src,dst, opts)
-        $LOGGER.info("Syncing....")
-        ScriptUtils::sh "rsync -r -t #{opts.join(' ')} #{src}/* #{dst}"      
-        $LOGGER.info("Synced")
+      def sync(share, src, dst, opts)
+        $LOGGER.info("Syncing #{share} (to #{dst})")
+      	debug_opts = ''
+      	if $LOGGER.level == Logger::DEBUG then
+      	  debug_opts = '--progress'
+      	end
+        cmd = "rsync -r -t #{debug_opts} #{opts.join(' ')} #{src}/* #{dst}"
+        if not ScriptUtils::sh(cmd) then
+          $LOGGER.error("Failed to umount sync files (rsync command failed)")          
+          $LOGGER.error("Failed command was: #{cmd}")
+        else
+          $LOGGER.info("Synced #{share} (to #{dst})")
+        end
       end
 
       def run(*args, options)        
@@ -220,25 +243,25 @@ module JV
 
         if not dstdir then
           $LOGGER.error("Destination directory not specified, use --dst")
-          return          
+          return STATUS_FAILED 
         end
         if not File.exist?(dstdir) then
           $LOGGER.error("Destinatim directory does not exist")
-          return
+          return STATUS_FAILED
         end
         if not File.directory?(dstdir) then
           $LOGGER.error("Destinatim directory does not a directory")
-          return
+          return STATUS_FAILED
         end
 
         if not smb_share then
           $LOGGER.error("Source SMB share not specified, use --src")
-          return
+          return STATUS_FAILED
         end
 
         if not smb_creds then
           $LOGGER.error("SMB credentials not specified, use --credentials")
-          return
+          return STATUS_FAILED
         end
 
         # Establish an OpenVPN connection if required
@@ -246,7 +269,7 @@ module JV
         if ovnp_conf then
           vpn = OpenVPN::Client.new(ovnp_conf)
           if not vpn.start() then
-            return
+            return STATUS_FAILED
           end          
         else
           $LOGGER.info("VPN connection not established as no --ovpn-config given")
@@ -256,13 +279,14 @@ module JV
         srcdir = Dir.mktmpdir("smb-sync", "/run/user/#{Process.uid}")
         #at_exit (remove directory)
         if not smb_share_mount(smb_share, srcdir, smb_creds) then
-          return
+          return STATUS_FAILED
         end        
         begin
-          sync(srcdir, dstdir, (options[:rsyncopts] || []))
+          sync(smb_share, srcdir, dstdir, (options[:rsyncopts] || []))
         ensure
           smb_share_umount(smb_share)
         end
+        return STATUS_SUCCESS
       end
     end # class Smb_sync
   end # module JV::Scripts    
@@ -332,7 +356,7 @@ def run!()
   optparser.parse! 
 
   
-  JV::Scripts::Smb_sync.new().run(ARGV, opts)
+  exit JV::Scripts::Smb_sync.new().run(ARGV, opts)
   
 end
 
