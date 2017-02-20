@@ -3,11 +3,11 @@ DOCUMENTATION = <<DOCEND
 A simple script to synchronize content of SMB share over the Internet. 
 Essentially, it automates following steps: 
 
- * (Optional) Establish an OpenVPN connection
+ * (Optional) Establish an VPN connection
  * Mount a SMB share
  * 'rsync' files from SMB share to local directory
  * Umount previously mounted SMB share
- * (Optional) Shut down previously established OpenVPN connection
+ * (Optional) Shut down previously established VPN connection
 
 ## Configuration
 
@@ -65,6 +65,42 @@ end
 
 $:.push(File.dirname($0))
 require 'scriptutils'
+
+module CiscoVPN
+  class Client
+    def initialize(config)
+      @config = config
+    end
+  
+
+    # Start (Cisco) VPN connection, return true if connections has
+    # been established, false otherwise
+    def start() 
+      cmd = "sudo -n /usr/sbin/vpnc-connect #{@config}"            
+      if ScriptUtils::sh(cmd) then          
+        at_exit { stop() }
+        $LOGGER.info("VPN connection established")
+        return true
+      else      
+        $LOGGER.error("Failed command was: #{cmd}")
+        $LOGGER.error("Failed to establish a VPN connection (vpnc-connect command failed)")
+        return false;
+      end
+    end
+
+    # Stop (Cisco) VPN connection
+    def stop() 
+      cmd = "sudo -n /usr/sbin/vpnc-disconnect"            
+      if ScriptUtils::sh(cmd) then          
+        $LOGGER.info("(Cisco VPN connection shut down")
+      else
+        $LOGGER.error("Failed shutdown Cisco VPN connection")
+        $LOGGER.error("Failed command was: #{cmd}")        
+      end
+    end
+
+  end # class Client
+end
 
 module OpenVPN
   class Client
@@ -162,7 +198,7 @@ module OpenVPN
     def stop() 
       if state() != STATE_DISCONNECTED then
         Process.kill("TERM", pid())   
-        $LOGGER.info("VPN connection shut down")
+        $LOGGER.info("OpenVPN connection shut down")
       end
     end
   end
@@ -176,9 +212,9 @@ module JV
 
       # Mount a SMB share to a temporary directory. Return
       # true if mount was successfully, false otherwuse.       
-      def smb_share_mount(share, mountpoint, credentials)
-        user = `id -un`.chop
-        cmd = "sudo -n mount -t cifs #{share} #{mountpoint} -o credentials=#{credentials},uid=#{user},forceuid"       
+      def smb_share_mount(share, mountpoint, credentials)        
+        user = `id -un`.chop                
+        cmd = "sudo -n mount -t cifs #{share} #{mountpoint} -o credentials=#{credentials},uid=#{user},forceuid"
         if not ScriptUtils::sh(cmd) then          
           $LOGGER.error("Failed to mount #{share} (mount command failed)")
           $LOGGER.error("Failed command was: #{cmd}")
@@ -221,7 +257,7 @@ module JV
         end        
       end
 
-      def sync(share, src, dst, opts)
+      def sync(share, src, dst, allowpartial, opts)
         $LOGGER.info("Syncing #{share} (to #{dst})")
       	debug_opts = ''
       	if $LOGGER.level == Logger::DEBUG then
@@ -229,8 +265,11 @@ module JV
       	end
         cmd = "rsync -r -t #{debug_opts} #{opts.join(' ')} #{src}/* #{dst}"
         if not ScriptUtils::sh(cmd) then
-          $LOGGER.error("Failed to umount sync files (rsync command failed)")          
-          $LOGGER.error("Failed command was: #{cmd}")
+          exitstatus = $?.exitstatus
+          if ! (exitstatus == 23 && allowpartial == true) then
+            $LOGGER.error("Failed to umount sync files (rsync command failed, exitstatus #{exitstatus})")          
+            $LOGGER.error("Failed command was: #{cmd}")
+          end
         else
           $LOGGER.info("Synced #{share} (to #{dst})")
         end
@@ -239,6 +278,7 @@ module JV
       def run(*args, options)        
         smb_share = options[:smbshare] || nil
         smb_creds = options[:smbcreds] || nil                
+
         dstdir = options[:dstdir] || nil                
 
         if not dstdir then
@@ -264,25 +304,36 @@ module JV
           return STATUS_FAILED
         end
 
-        # Establish an OpenVPN connection if required
         ovnp_conf = options[:ovpnconf] || nil        
+        vnpc_conf = options[:vpncconf] || nil        
+        if ovnp_conf != nil and vnpc_conf != nil then
+          $LOGGER.error("Both --ovpn-config and --vpnc-config specified, at most one is allowed")
+          return STATUS_FAILED
+        end
+
+        # Establish an VPN connection if required        
         if ovnp_conf then
           vpn = OpenVPN::Client.new(ovnp_conf)
           if not vpn.start() then
             return STATUS_FAILED
           end          
+        elsif vnpc_conf then
+          vpn = CiscoVPN::Client.new(vnpc_conf)
+          if not vpn.start() then
+            return STATUS_FAILED
+          end          
         else
-          $LOGGER.info("VPN connection not established as no --ovpn-config given")
+          $LOGGER.info("VPN connection not established as no --ovpn-config nor --vpnc-config given")
         end
 
         # Mount         
-        srcdir = Dir.mktmpdir("smb-sync", "/run/user/#{Process.uid}")
+        srcdir = Dir.mktmpdir("smb-sync", "/tmp")
         #at_exit (remove directory)
         if not smb_share_mount(smb_share, srcdir, smb_creds) then
           return STATUS_FAILED
         end        
         begin
-          sync(smb_share, srcdir, dstdir, (options[:rsyncopts] || []))
+          sync(smb_share, srcdir, dstdir, (options[:allowpartial] || false), (options[:rsyncopts] || []))
         ensure
           smb_share_umount(smb_share)
         end
@@ -297,8 +348,12 @@ def run!()
   optparser = OptionParser.new do | optparser |
     optparser.banner = "Usage: $0 [options] --src SHARE --dst DIRECTORY"
 
-    optparser.on('--ovpn-config CONFIG', "Use given OpenVPN config file to establish a VPN connection.") do | value |
+    optparser.on('--ovpn-config CONFIG', "Use given OpenVPN config file to establish a VPN connection. Optional.") do | value |
       opts[:ovpnconf] = value
+    end
+
+    optparser.on('--vpnc-config CONFIG', "Use given Cisco VPN config file to establish a VPN connection. Optional.") do | value |
+      opts[:vpncconf] = value
     end
 
     optparser.on('--src SHARE', "Synchronize deta from given SHARE. Mandatory.") do | value |
@@ -311,6 +366,10 @@ def run!()
 
     optparser.on('--credentials CREDENTIALS', "Use given CREDENTIALS to authenticate to the SHARE. Mandatory") do | value |
       opts[:smbcreds] = value
+    end
+
+    optparser.on('--allow-partial-transfer', "Do not fail if rsync reports partial transfer due to an error (exitcode 23)") do | value | 
+      opts[:allowpartial] = true
     end
 
     optparser.on('-o', '--opt=OPTION', "Pass following option to rsync") do | value | 
