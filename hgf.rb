@@ -19,6 +19,17 @@ require 'fileutils'
 
 include FileUtils
 
+if not $LOGGER then
+  if STDOUT.tty? then
+    require 'logger'
+    $LOGGER = Logger.new(STDOUT)
+    $LOGGER.level = Logger::INFO  
+  else 
+    require 'syslog/logger'
+    $LOGGER = Syslog::Logger.new($0)    
+  end
+end
+
 $:.push(File.dirname($0))
 require 'hglib'
 
@@ -149,13 +160,19 @@ def run!
     begin
       if print 
         puts repo.path
-      else
+      end      
+      if ARGV.size > 0 then 
         if command? ARGV[0]         
           FileUtils.chdir repo.path do
             system *ARGV
           end
         else
           system('hg' , '--cwd' , repo.path, *ARGV)
+        end 
+      else 
+        if not print then
+          puts "No command given"
+          exit 3
         end
       end
     rescue Interrupt
