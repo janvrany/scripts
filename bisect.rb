@@ -9,9 +9,12 @@ as CVS or when diffs between two revisions are too big and unrelated.
 The check script (if provided) is passed a path to working directory and must
 return exit status 0 if working copy is good of nonzero if its bad.
 
-There's one "built-in" check script called "internal:make" (the default, if no
-check script is used) which just runs a make. A workdir is consireder good if
-make proceeds without errors.
+There are two "built-in" check scripts:
+
+* "internal:make" which just runs a make. A workdir is consireder good if make 
+   proceeds without errors.
+* "internal:confirm" (the default, if no check script is used) which asks user
+  wherther the working directory is good or bad. 
 
 See also:
 
@@ -26,9 +29,27 @@ require 'optparse'
 
 include FileUtils
 
+def confirm(message, default, interactive = STDOUT.tty?)  
+  return default if not interactive 
+  STDOUT.write "#{message} (#{default ? 'Y' : 'y'}/#{default ? 'n' : 'N'})? "
+  while true do
+    answer = STDIN.gets.chop
+    return default if answer == ''
+    if ['y', 'Y', 'yes', 'YES', 'Yes', 'true', 'True'].include? answer then
+      return true
+    end
+    if ['n', 'N', 'no', 'NO', 'No', 'false', 'False'].include? answer then
+      return false
+    end
+    STDOUT.write "Invalid answer, please answer either 'y' or 'n': "
+  end
+end
+
 def check(script, dir)
     if script == 'internal:make' then
-        return check_internal_make(dir)
+      return check_internal_make(dir)
+    elsif script == 'internal:confirm'
+      return check_internal_confirm(dir)
     else
     	return check_external(script, dir)
     end
@@ -36,6 +57,19 @@ end
 
 def check_internal_make(dir)
     return (system "make -C #{dir}")
+end
+
+def check_internal_confirm(dir)
+    puts "Please test contents of #{dir}"
+    if confirm("Is it good? ", false, true) then
+      puts "Working copy is good so far"
+      return true;
+    else
+      puts "OOPS, got you!"
+      return false
+    end
+return 
+    
 end
 
 def check_external(script, dir)
@@ -80,7 +114,7 @@ end
 
 def main()
     excludes = []
-    script = 'internal:make'
+    script = 'internal:confirm'
 
     optparse = OptionParser.new do | opts |
     	opts.banner = "Usage: bisect-dir.rb [options] <good> <bad> <working>"
@@ -115,7 +149,7 @@ def main()
     puts " work : #{$DIR_WORK}"
 
     puts "Diffing directories..."
-    differences = `diff -x CVS -x .svn -x .hg -x \*.so -x \*.o -rqb #{$DIR_GOOD} #{$DIR_BAD} | grep differ`
+    differences = `diff -x CVS -x .svn -x objmingw -x .hg -x \*.so -x \*.o -rqb #{$DIR_GOOD} #{$DIR_BAD} | grep differ`
     differences = differences.split("\n");
     differences = differences.map { |e| e.split()[1].slice($DIR_GOOD.size..-1) }
     excludes.each do | pattern |
@@ -129,8 +163,8 @@ def main()
         puts " - #{each}"
     end
 
-    puts "Preparing working directory..."
-    `rsync --progress -r "#{$DIR_GOOD}/" "#{$DIR_WORK}/"`
+    #puts "Preparing working directory..."
+    #`rsync --progress -r "#{$DIR_GOOD}/" "#{$DIR_WORK}/"`
 
     puts "Checking pristine working directory..."
     if ! check(script, $DIR_WORK) then

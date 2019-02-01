@@ -19,6 +19,17 @@ require 'fileutils'
 
 include FileUtils
 
+if not $LOGGER then
+  if STDOUT.tty? then
+    require 'logger'
+    $LOGGER = Logger.new(STDOUT)
+    $LOGGER.level = Logger::INFO  
+  else 
+    require 'syslog/logger'
+    $LOGGER = Syslog::Logger.new($0)    
+  end
+end
+
 $:.push(File.dirname($0))
 require 'hglib'
 
@@ -120,22 +131,25 @@ end
 def run!
   root_dir = '.'
   print = false
+  banner = false
   optparse = OptionParser.new do | opts |
-    opts.banner = "Usage: #{$0} [--cwd DIRECTORY] COMMAND [ARG1 [ARG2 [...]]]" 
+    opts.banner = "Usage: #{$0} [--cwd DIRECTORY] [--print|--banner] -- COMMAND [ARG1 [ARG2 [...]]]"
     opts.on('-C', '--cwd DIRECTORY', "Enumerate repositories under DIRECTORY") do | value |
       root_dir = value
     end
     opts.on('-p', '--print', "Print paths to repositories rather than executing command ") do
       print = true
     end
-
+    opts.on('-b', '--banner', "Print 'banner' before each output to separate outputs for individual repos") do
+      banner = true
+    end
     opts.on(nil, '--help', "Prints this message") do
       puts DOCUMENTATION
       puts optparse.help()
       exit 0
     end
   end
-  optparse.parse!  
+  optparse.parse!
 
   if not File.exist? root_dir then
     puts "No such directory: #{root_dir}"
@@ -145,17 +159,29 @@ def run!
     puts "Not a directory: #{root_dir}"
     exit 2
   end
-  HG::forest(root_dir) do | repo |    
+  HG::forest(root_dir) do | repo |
     begin
-      if print 
+      if print
         puts repo.path
-      else
-        if command? ARGV[0]         
+      end
+      if ARGV.size > 0 then
+        if banner
+          puts "== #{repo.path} =="
+        end
+        if command? ARGV[0]
           FileUtils.chdir repo.path do
             system *ARGV
           end
         else
           system('hg' , '--cwd' , repo.path, *ARGV)
+        end
+        if banner
+          puts "\n"
+        end
+      else
+        if not print then
+          puts "No command given"
+          exit 3
         end
       end
     rescue Interrupt

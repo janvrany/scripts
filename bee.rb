@@ -41,6 +41,7 @@ def main()
   prefix = nil
   loader = nil
   winecfg = false
+  winetricks = false
   
   optparse = OptionParser.new do | opts |
     opts.banner = "Usage: bee.rb [-p PREFIX] [-l LOADER]\n\n"
@@ -62,6 +63,9 @@ def main()
       winecfg = true;
     end
 
+    opts.on('--winetricks', "Runs winetricks (instead of Bee Smalltalk)") do | value |
+      winetricks = true;
+    end
 
     opts.on(nil, '--help', "Prints this message") do
       puts DOCUMENTATION
@@ -70,7 +74,19 @@ def main()
     end
   end
 
-  optparse.parse!
+  rest = []  
+  while not ARGV.empty? do 
+    begin 
+      optparse.parse!      
+      rest += ARGV
+      ARGV.clear
+    rescue OptionParser::InvalidOption => e      
+      rest += e.args
+      while not ARGV.empty? and ARGV[0][0] != "-"
+        rest << ARGV.shift
+      end
+    end
+  end
 
   if not prefix then
     prefix = config['wine']['prefix']
@@ -89,6 +105,9 @@ def main()
   end
 
   if winecfg then
+    if winetricks then
+      error("Only --wincfg OR --wineetricks can be used, NOT BOTH!")
+    end
   	if loader then 
   		bin_fir = File.dirname(loader)
   		if File.exist? "#{bin_fir}/winecfg" then
@@ -96,10 +115,12 @@ def main()
   		end
   	end
   	exec("winecfg")  	  	
+  elsif winetricks then
+    exec("winetricks #{rest.join(' ')}")
   else
   	# Find BeeDev.exe
   	if File.exist? "BeeDev.exe" 
-  		exec("#{loader || 'wine'} BeeDev.exe")  
+  		exec("#{loader || 'wine'} BeeDev.exe #{rest.join(' ')}")  
   	else
   		error("Could not find DeeDev.exe in working directory")
     end

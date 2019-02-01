@@ -10,6 +10,8 @@ Scripts
 
 * *[stx-pkg-rename.rb][3]*: renaming a Smalltalk/X package is sort of a pain. This script makes it a little bit easier.
 
+* *[stx-cls-rename.rb][18]*: renaming a Smalltalk/X class on a file level requires changing build support files as well. This script automates this. However, it's always better to Smalltalk/X IDE to do so! Use only if you know what are you doing. 
+
 * *[stx-normalize-trace-log.rb][10]* a script to normalize a trace output from Smalltalk/X VM so difference in two traces can be easily spotted using text diff tool. 
 
 * *[hg-archive-revisions.rb][4]*: an `hg archive` wrapper which allows to export multiple revisions at once, in the same way `hg export` can. Handy for generating complete archives for those who don't like patches :-)
@@ -64,4 +66,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [15]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-extract-c-defines.rb
 [16]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bitbucket-sync.rb
 [17]: https://bitbucket.org/janvrany/jv-scripts/src/tip/smb-sync.rb
-
+[18]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-cls-rename.rb

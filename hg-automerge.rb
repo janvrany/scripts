@@ -87,7 +87,7 @@ def edit(file)
   ]
   editors.each do | editor |
     if editor 
-      if sys "#{editor} #{file}"
+      if ScriptUtils::sh "#{editor} #{file}"
         return
       end
     end
@@ -224,7 +224,7 @@ module JV
                 if commit 
                   if confirm("Merge succeeded, commit?", true, options[:interactive])  
                     $LOGGER.debug "Commiting"
-                    merge_wc.commit("Merge");
+                    merge_wc.commit("Merge", user: 'HG Automerge');
                   end
                 end
               else
@@ -233,8 +233,7 @@ module JV
             rescue => ex
               if STDOUT.tty? 
                 print ex.backtrace.join("\n")
-              end
-              nn
+              end              
             end
           ensure
             if merge_wc_dir then
