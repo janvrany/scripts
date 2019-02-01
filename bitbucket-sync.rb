@@ -189,6 +189,9 @@ module JV
               f.write "[web]\n"
               f.write "description = #{remote.description}\n"
               f.write "contact = #{local.config['ui']['username']}\n"
+              f.write "\n"
+              f.write "[phases]\n"
+              f.write "publish = False\n"
             end
           else
             local = HG::Repository.new(repo_path)
