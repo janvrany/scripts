@@ -198,7 +198,21 @@ module JV
           end
           @map[pull_url] = local
         end
-        sync0(remote, local)        
+        begin
+          sync0(remote, local)        
+        rescue Exception
+          delay = 30 + rand * 100
+          $LOGGER.debug("Will retry after #{delay}...")
+          sleep(delay)
+          begin
+            sync0(remote, local)
+          rescue Exception
+            delay = 30 + rand * 100
+            $LOGGER.debug("Will retry after #{delay}...")
+            sleep(delay)
+            sync0(remote, local)
+          end
+        end
       end
 
       def sync0(remote, local)
