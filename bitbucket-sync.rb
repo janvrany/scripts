@@ -93,6 +93,36 @@ module BitBucket
   end
 
   class Repository
+    class Wiki
+      def initialize(repo)
+        @repo = repo
+      end
+
+      def pull_url(prefer_ssh = false)
+        return @repo.pull_url(prefer_ssh) + "/wiki"
+      end
+
+      def push_url(prefer_ssh = false)
+        return @repo.push_url(prefer_ssh) + "/wiki"
+      end
+
+      def slug
+        return @repo.slug() + '-wiki'
+      end
+
+      def user
+        return @repo.user
+      end
+
+      def pass
+        return @repo.pass
+      end
+
+      def description
+        return @repo.description + ' - Wiki'
+      end
+    end # class Wiki
+
     attr_accessor :user, :pass
 
     def initialize(user, pass, data) 
@@ -119,6 +149,14 @@ module BitBucket
 
     def private?
       return ! self.public?
+    end
+
+    def wiki?
+      return @data['has_wiki']
+    end
+
+    def wiki
+      return Wiki.new(self)
     end
 
     def pull_url(prefer_ssh = false)
@@ -171,6 +209,17 @@ module JV
   module Scripts
     class BitBucket_sync
       def sync(remote)
+        sync2(remote)
+        if remote.wiki?
+          begin
+            sync2(remote.wiki)
+          rescue Exception
+            $LOGGER.info("Failed to sync wiki")
+          end
+        end
+      end
+
+      def sync2(remote)
         prefer_ssh = @options[:ssh] || false
         pull_url = remote.pull_url(prefer_ssh)
         push_url = remote.push_url()
@@ -178,7 +227,7 @@ module JV
         if not local then
           root = @options[:root] || '.'
           repo_path = File.absolute_path(File.join(root, remote.slug))
-          if not HG::repository? repo_path     
+          if not HG::repository? repo_path
             $LOGGER.info("Creating repository in #{repo_path}, remote #{pull_url}")
             local = HG::Repository::init(repo_path)
             File.open(local.hgrc(), "a") do | f |
@@ -198,6 +247,10 @@ module JV
           end
           @map[pull_url] = local
         end
+        sync1(remote, local)
+      end
+
+      def sync1(remote, local)
         begin
           sync0(remote, local)        
         rescue Exception
@@ -225,7 +278,7 @@ module JV
         dryrun = @options[:dryrun] || false
 
         $LOGGER.debug("performing #{action}, local=#{local.path}, remote=#{pull_url}")
-        if action == :incoming then          
+        if action == :incoming then
           sys "hg --cwd #{local.path} incoming #{pull_url}" unless dryrun
         elsif action == :pull then
           $LOGGER.info("#{local.path}: pulling from #{pull_url}")
