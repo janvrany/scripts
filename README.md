@@ -39,6 +39,8 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[smb-sync.rb][17]* a simple script to synchronize SMB/CIFS share to a local directory.
 
+* *[stx-pkg-fork-cvs.rb][18]: a script to make a (Mercurial) fork of Smalltalk/X package from CVS
+
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
 
@@ -67,3 +69,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [16]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bitbucket-sync.rb
 [17]: https://bitbucket.org/janvrany/jv-scripts/src/tip/smb-sync.rb
 [18]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-cls-rename.rb
+[18]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-pkg-fork-cvs.rb
