@@ -5,8 +5,24 @@ require 'uri'
 require 'open3'
 require 'shellwords'
 
+unless $LOGGER
+  if STDOUT.tty? or win32?
+    require 'logger'
+    $LOGGER = Logger.new(STDOUT)
+
+    if defined? VERBOSE and !VERBOSE.nil?
+      $LOGGER.level = Logger::DEBUG
+    else
+      $LOGGER.level = Logger::INFO
+    end
+  else
+    require 'syslog/logger'
+    $LOGGER = Syslog::Logger.new($0)
+  end
+end
+
 # Following hack is to make hglib.rb working wit both jv:scripts and
-# Smalltalk/X rakefiles. 
+# Smalltalk/X rakefiles. con
 begin
   require 'rakelib/inifile'
 rescue LoadError => ex
@@ -16,22 +32,6 @@ rescue LoadError => ex
     $LOGGER.error(%q{Cannot load package 'inifile'})
     $LOGGER.error(%q{Run 'gem install inifile' to install it})
     exit 1
-  end
-end
-
-unless $LOGGER
-  if STDOUT.tty? or win32?
-    require 'logger'
-    $LOGGER = Logger.new(STDOUT)
-
-    if !VERBOSE.nil?
-      $LOGGER.level = Logger::DEBUG
-    else
-      $LOGGER.level = Logger::INFO
-    end
-  else
-    require 'syslog/logger'
-    $LOGGER = Syslog::Logger.new($0)
   end
 end
 
@@ -260,10 +260,16 @@ module HG
     def self.host_on_lan?(hostname)
       unless @@HOSTS_ON_LAN.has_key? hostname
         require 'resolv'
-        addr = Resolv.getaddress(hostname)
-        # Really poor detection of LAN, but since this is an
-        # optimization, getting this wrong does not hurt.
-        local = (addr.start_with? '192.168.') or (addr.start_with? '10.10.')
+        local = false
+        begin
+          addr = Resolv.getaddress(hostname)
+          # Really poor detection of LAN, but since this is an
+          # optimization, getting this wrong does not hurt.
+          local = (addr.start_with? '192.168.') or (addr.start_with? '10.10.')
+        rescue ArgumentError => ex
+          # Maybe not a remote host at all
+          local = false
+        end
         @@HOSTS_ON_LAN[hostname] = local
       end
       return @@HOSTS_ON_LAN[hostname]
@@ -572,8 +578,7 @@ module HG
       hg('merge', rev) {|status| return status.success?}
     end
 
-    def commit(message, user='')
-      user = @config['ui']['username'] unless @config['ui'].has_key? 'username'
+    def commit(message, user=nil)
       hg('commit', message: message, user: user)
     end
 
