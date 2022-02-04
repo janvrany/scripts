@@ -53,23 +53,23 @@ Just clone the repository to some location and add it to the `PATH`.
 
 However, you may need to install Ruby to run Ruby scripts (those with `.rb` suffix)
 
-[1]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bisect.rb
-[2]: https://bitbucket.org/janvrany/jv-scripts/src/tip/patch-and-check.rb
-[3]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-pkg-rename.rb
-[4]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-archive-revisions.rb
-[5]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-xplant.rb
-[6]: https://bitbucket.org/janvrany/jv-scripts/src/tip/cvs-addremove.rb
-[7]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-pkg-set.rb
-[8]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee.rb
-[9]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-config.rb
-[10]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-normalize-trace-log.rb
-[11]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-xpull.rb
+[1]: https://github.com/janvrany/scripts/blob/master/bisect.rb
+[2]: https://github.com/janvrany/scripts/blob/master/patch-and-check.rb
+[3]: https://github.com/janvrany/scripts/blob/master/stx-pkg-rename.rb
+[4]: https://github.com/janvrany/scripts/blob/master/hg-archive-revisions.rb
+[5]: https://github.com/janvrany/scripts/blob/master/hg-xplant.rb
+[6]: https://github.com/janvrany/scripts/blob/master/cvs-addremove.rb
+[7]: https://github.com/janvrany/scripts/blob/master/bee-pkg-set.rb
+[8]: https://github.com/janvrany/scripts/blob/master/bee.rb
+[9]: https://github.com/janvrany/scripts/blob/master/bee-config.rb
+[10]: https://github.com/janvrany/scripts/blob/master/stx-normalize-trace-log.rb
+[11]: https://github.com/janvrany/scripts/blob/master/hg-xpull.rb
 [12]: https://swing.fit.cvut.cz/projects/stx-jv
-[13]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hg-automerge.rb
-[14]: https://bitbucket.org/janvrany/jv-scripts/src/tip/hgf.rb
-[15]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bee-extract-c-defines.rb
-[16]: https://bitbucket.org/janvrany/jv-scripts/src/tip/bitbucket-sync.rb
-[17]: https://bitbucket.org/janvrany/jv-scripts/src/tip/smb-sync.rb
-[18]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-cls-rename.rb
-[19]: https://bitbucket.org/janvrany/jv-scripts/src/tip/stx-pkg-fork-cvs.rb
+[13]: https://github.com/janvrany/scripts/blob/master/hg-automerge.rb
+[14]: https://github.com/janvrany/scripts/blob/master/hgf.rb
+[15]: https://github.com/janvrany/scripts/blob/master/bee-extract-c-defines.rb
+[16]: https://github.com/janvrany/scripts/blob/master/bitbucket-sync.rb
+[17]: https://github.com/janvrany/scripts/blob/master/smb-sync.rb
+[18]: https://github.com/janvrany/scripts/blob/master/stx-cls-rename.rb
+[19]: https://github.com/janvrany/scripts/blob/master/stx-pkg-fork-cvs.rb
 [20]: https://github.com/janvrany/scripts/blob/master/zcpy.sh
