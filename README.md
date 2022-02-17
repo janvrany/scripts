@@ -43,6 +43,9 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[zcpy.sh][20]*: a simple script to (incrementally) copy ZFS datasets between pools WITHIN ONE SYSTEM.
 
+* *[github-sync.py][21]*: a simple script for uni-directional synchronization of GitHub repositories.
+
+
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
 
@@ -73,3 +76,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [18]: https://github.com/janvrany/scripts/blob/master/stx-cls-rename.rb
 [19]: https://github.com/janvrany/scripts/blob/master/stx-pkg-fork-cvs.rb
 [20]: https://github.com/janvrany/scripts/blob/master/zcpy.sh
+[21]: https://github.com/janvrany/scripts/blob/master/github-sync.py
