@@ -5,11 +5,14 @@ repositories to local mirrors.
 
 ## Installation and Setup
 
- 1. Install PyGithub:
+ 1. Create and activate virtual environment for required packages:
+
+        virtualenv --prompt scripts .venv
+        . .venv/bin/activate
+
+ 2. Install PyGithub:
 
         pip3 install PyGithub
-
- 2. Copy this script somewhere accessible, say /usr/local/bin
 
  3. Generate GitHub "personal access tokens" - to do so go to...
 

@@ -37,6 +37,8 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[github-sync.py][21]*: a simple script for uni-directional synchronization of GitHub repositories.
 
+* *[get-oauth2-token.py][21]*: script to get Outh2 access token (for example, to access mail through IMAPS on Office365)
+
 
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
@@ -65,3 +67,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [19]: https://github.com/janvrany/scripts/blob/master/stx-pkg-fork-cvs.rb
 [20]: https://github.com/janvrany/scripts/blob/master/zcpy.sh
 [21]: https://github.com/janvrany/scripts/blob/master/github-sync.py
+[22]: https://github.com/janvrany/scripts/blob/master/get-oauth2-token.py
