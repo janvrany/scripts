@@ -27,14 +27,6 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[cvs-addremove.rb][6]* a script to examine  CVS working copy, `cvs add` allnew files and `cvs remove` all missing files.
 
-* *[bee-pkg-set.rb][7]* a simple script to set package name in Bee Smalltalk changeset file (.ch)
-
-* *[bee.rb][8]* a script to run Bee Smalltalk under WINE. 
-
-* *[bee-config.rb][9]* a convenience script to open an editor on Bee Smalltalk config file (used by `bee.rb`).
-
-* *[bee-extract-c-defines.rb][15]* simple script to extract #define'd constants from C header files and create Smalltalk statements that fill in pool dictionary. 
-
 * *[bitbucket-sync.rb][16]* a simple script for bi-directional synchronization of BitBucket-hosted repositories with local mirror
 
 * *[smb-sync.rb][17]* a simple script to synchronize SMB/CIFS share to a local directory.
@@ -62,15 +54,11 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [4]: https://github.com/janvrany/scripts/blob/master/hg-archive-revisions.rb
 [5]: https://github.com/janvrany/scripts/blob/master/hg-xplant.rb
 [6]: https://github.com/janvrany/scripts/blob/master/cvs-addremove.rb
-[7]: https://github.com/janvrany/scripts/blob/master/bee-pkg-set.rb
-[8]: https://github.com/janvrany/scripts/blob/master/bee.rb
-[9]: https://github.com/janvrany/scripts/blob/master/bee-config.rb
 [10]: https://github.com/janvrany/scripts/blob/master/stx-normalize-trace-log.rb
 [11]: https://github.com/janvrany/scripts/blob/master/hg-xpull.rb
 [12]: https://swing.fit.cvut.cz/projects/stx-jv
 [13]: https://github.com/janvrany/scripts/blob/master/hg-automerge.rb
 [14]: https://github.com/janvrany/scripts/blob/master/hgf.rb
-[15]: https://github.com/janvrany/scripts/blob/master/bee-extract-c-defines.rb
 [16]: https://github.com/janvrany/scripts/blob/master/bitbucket-sync.rb
 [17]: https://github.com/janvrany/scripts/blob/master/smb-sync.rb
 [18]: https://github.com/janvrany/scripts/blob/master/stx-cls-rename.rb
