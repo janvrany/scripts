@@ -173,7 +173,7 @@ if __name__ == '__main__':
                         help="Client (application) secret, defaults to none")
     parser.add_argument("--scope", metavar="SCOPE",
                         dest='scopes', action='append',
-                        help="Authorization scope, defaults to 'https://outlook.office.com/IMAP.AccessAsUser.All'")
+                        help="Authorization scope, defaults to 'https://outlook.office.com/IMAP.AccessAsUser.All, https://outlook.office.com/SMTP.Send'")
     parser.add_argument("--cache", metavar="CACHE",
                         dest='cache', default=None,
                         help="Path to token cache file")
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     config = {
         'client_id' : options.client_id,
         'client_credential' : options.client_credential,
-        'scopes' : options.scopes if options.scopes else ["https://outlook.office.com/IMAP.AccessAsUser.All"],
+        'scopes' : options.scopes if options.scopes else ["https://outlook.office.com/IMAP.AccessAsUser.All", "https://outlook.office.com/SMTP.Send"],
         'cache' : options.cache
     }
 
