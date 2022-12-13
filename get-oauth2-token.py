@@ -84,12 +84,10 @@ class MicrosoftO365(object):
         elif not 'scopes' in config:
             raise ValueError("No 'scope' in config!")
 
-        if 'cache' in self.config:
-            self._cache = msal.SerializableTokenCache()
+        self._cache = msal.SerializableTokenCache()
+        if self.config.get('cache') is not None:
             if os.path.exists(config['cache']):
                 self._cache.deserialize(open(config['cache'], "r").read())
-        else:
-            self._cache = None
 
         self._app = msal.ConfidentialClientApplication(
                             client_id = config.get('client_id'),
