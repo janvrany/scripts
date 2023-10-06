@@ -97,11 +97,11 @@ if [ -z $2 ]; then echo "Usage: $0 <SOURCE> <TARGET>"; exit 1; fi
 src_fs=$1
 dst_fs=$2
 
-if ! zfs list -Ho name "${src_fs}" > /dev/null; then
+if ! zfs list -Ho name "${src_fs}" &> /dev/null; then
 	error "source dataset does not exist: ${src_fs}"
 fi
 
-if ! zfs list -Ho name "${dst_fs}" > /dev/null; then
+if ! zfs list -Ho name "${dst_fs}" &> /dev/null; then
 	dst_fs_exists="no"
 	initial="yes"
 else
@@ -120,9 +120,9 @@ fi
 
 src_snap_new="${src_fs}@zcpy-$(date +%Y-%m-%d_%H-%M-%S)"
 
-if [ "$zfs_dst_exists" == "no" ]; then
+if [ "$dst_fs_exists" == "no" ]; then
 	$zfs_eval zfs snapshot -r "${src_snap_new}"
-	$zfs_eval trap "$zfs_eval zfs destroy -r \"${src_snap_new}\"" EXIT
+	trap "$zfs_eval zfs destroy -r \"${src_snap_new}\"" EXIT
 	$zfs_eval zfs create -p $(dirname "${dst_fs}")
 	$zfs_eval zfs send -R "${src_snap_new}" \| pv \| zfs recv -u "${dst_fs}"
 	trap - EXIT
