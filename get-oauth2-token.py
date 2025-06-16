@@ -125,7 +125,11 @@ class MicrosoftO365(object):
                 refresh_token = refresh_tokens[0]['secret']
                 reply = self._app.acquire_token_by_refresh_token(refresh_token=refresh_token, scopes=config["scopes"])
                 if reply and "error" in reply:
-                    raise Exception(reply["error_description"])
+                    if "suberror" in reply and reply["suberror"] in ('token_expired', 'bad_token'):
+                        logging.info("Refresh token expired")
+                        reply = None
+                    else:
+                        raise Exception(reply["error_description"])
         if not reply:
             if interactive:
                 auth_request = self._app.initiate_auth_code_flow(scopes = config.get('scopes'), redirect_uri = config.get('redirect_uri', "https://login.microsoftonline.com/common/oauth2/nativeclient"))
@@ -148,7 +152,7 @@ address bar here (and press enter):""")
                 if "error" in reply:
                     raise Exception(reply["error_description"])
             else:
-                raise Exception('Cannot fetch access token: cache missing and not interactive')
+                raise Exception('Cannot (re)fetch access token: cache missing or expired and not interactive')
         if not 'access_token' in reply:
             raise Exception('Oops, no access token in reply!')
         return reply['access_token']
