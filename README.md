@@ -39,6 +39,8 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[get-oauth2-token.py][22]*: script to get Outh2 access token (for example, to access mail through IMAPS on Office365).
 
+* *[github-activity.py][23]*: script to print activity summary of GitHub repositories over a period of time.
+
 
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
@@ -68,3 +70,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [20]: https://github.com/janvrany/scripts/blob/master/zcpy.sh
 [21]: https://github.com/janvrany/scripts/blob/master/github-sync.py
 [22]: https://github.com/janvrany/scripts/blob/master/get-oauth2-token.py
+[23]: https://github.com/janvrany/scripts/blob/master/github-activity.py
