@@ -37,7 +37,7 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[github-sync.py][21]*: a simple script for uni-directional synchronization of GitHub repositories.
 
-* *[get-oauth2-token.py][21]*: script to get Outh2 access token (for example, to access mail through IMAPS on Office365)
+* *[get-oauth2-token.py][22]*: script to get Outh2 access token (for example, to access mail through IMAPS on Office365).
 
 
 You can find more details about inside these scripts, or run script with `--help`.

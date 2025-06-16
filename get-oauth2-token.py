@@ -18,6 +18,9 @@ such a Google may be added in a future if needed).
 
         pip3 install msal
 
+Alternatively:
+
+    apt-get install python3-msal
 
 """
 
