@@ -128,10 +128,26 @@ def command?(command)
   return false
 end
 
+def execute(command, repo_path, print_prefix)
+  if not print_prefix then
+    system *command
+  else
+    require 'open3'
+    stdout, stderr, status = Open3.capture3(*command)
+    stdout.split().each do | line |
+      puts "#{repo_path}: #{line}\n"
+    end
+    stderr.split().each do | line |
+      puts "#{repo_path}: #{line}\n"
+    end
+  end
+end
+
 def run!
   root_dir = '.'
   print = false
   banner = false
+  prefix = false
   optparse = OptionParser.new do | opts |
     opts.banner = "Usage: #{$0} [--cwd DIRECTORY] [--print|--banner] -- COMMAND [ARG1 [ARG2 [...]]]"
     opts.on('-C', '--cwd DIRECTORY', "Enumerate repositories under DIRECTORY") do | value |
@@ -142,6 +158,9 @@ def run!
     end
     opts.on('-b', '--banner', "Print 'banner' before each output to separate outputs for individual repos") do
       banner = true
+    end
+    opts.on('-B', '--prefix', "Prefix each line of output with repository path (useful for piping output to `grep`)") do
+      prefix = true
     end
     opts.on(nil, '--help', "Prints this message") do
       puts DOCUMENTATION
@@ -170,10 +189,10 @@ def run!
         end
         if command? ARGV[0]
           FileUtils.chdir repo.path do
-            system *ARGV
+            execute(ARGV, repo.path, prefix)
           end
         else
-          system('hg' , '--cwd' , repo.path, *ARGV)
+          execute(['hg' , '--cwd' , repo.path] + ARGV, repo.path, prefix)
         end
         if banner
           puts "\n"
