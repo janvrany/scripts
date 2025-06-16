@@ -164,6 +164,11 @@ address bar here (and press enter):""")
         else:
             raise Exception("No accounts available, call 'get_token' first!")
 
+    def get_imap_auth_string(self):
+        token = self.get_token()
+        username = self.get_username()
+        return f"user={username}\x01auth=Bearer {token}\x01\x01"
+
 
 if __name__ == '__main__':
     import argparse
@@ -187,9 +192,12 @@ if __name__ == '__main__':
     parser.add_argument("--debug",
                         action="store_const", const=True, default=False,
                         help="Enable debugging")
-    parser.add_argument("--test-imap",
-                        dest='test_imap', action="store_const", const=True, default=False,
-                        help="Enable debugging")
+    parser.add_argument("--imap-test",
+                        dest='imap_test', action="store_const", const=True, default=False,
+                        help="Try to connect to IMAP server to test the token")
+    parser.add_argument("--imap-auth-string",
+                        dest='imap_auth_string', action="store_const", const=True, default=False,
+                        help="Output full IMAP XOAUTH2 authentication string instead of just the token")
 
 
     options = parser.parse_args()
@@ -207,21 +215,23 @@ if __name__ == '__main__':
 
     with MicrosoftO365(config) as provider:
         try:
-            access_token = provider.get_token(sys.stdout.isatty())
-            if options.test_imap:
-                username = provider.get_username()
-
+            if options.imap_test:
                 import imaplib
                 with imaplib.IMAP4_SSL('outlook.office365.com') as imap:
                     imap.debug = 4
-                    imap.authenticate('XOAUTH2', lambda x : f"user={username}\x01auth=Bearer {access_token}\x01\x01")
+                    imap.authenticate('XOAUTH2', lambda x : provider.get_imap_auth_string())
                     imap.select('inbox')
             else:
+                if options.imap_auth_string is True:
+                    output_string = provider.get_imap_auth_string()
+                else:
+                    output_string = provider.get_token(sys.stdout.isatty())
+
                 if options.output == '-':
-                    print(access_token)
+                    print(output_string)
                 else:
                     with open(options.output, 'w') as output:
-                        output.write(access_token)
+                        output.write(output_string)
         except KeyboardInterrupt:
             pass
         except Exception as e:
@@ -229,3 +239,5 @@ if __name__ == '__main__':
                 raise e
             else:
                 logging.error(str(e))
+            sys.exit(1)
+        sys.exit(0)
