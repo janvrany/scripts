@@ -41,6 +41,9 @@ conjunction with [hg-xpull.rb][11] to automatically merge changes in upstream.
 
 * *[github-activity.py][23]*: script to print activity summary of GitHub repositories over a period of time.
 
+* *[get-secret.py][24]*: script to get secret (password) from system's default
+"secret storage".
+
 
 You can find more details about inside these scripts, or run script with `--help`.
 More scripts will come as I polish them :-)
@@ -71,3 +74,4 @@ However, you may need to install Ruby to run Ruby scripts (those with `.rb` suff
 [21]: https://github.com/janvrany/scripts/blob/master/github-sync.py
 [22]: https://github.com/janvrany/scripts/blob/master/get-oauth2-token.py
 [23]: https://github.com/janvrany/scripts/blob/master/github-activity.py
+[23]: https://github.com/janvrany/scripts/blob/master/get-secret.py
